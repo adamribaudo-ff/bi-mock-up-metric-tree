@@ -112,12 +112,23 @@
   text-align: center;
 }
 
+.metric-value-container {
+  margin-bottom: 12px;
+}
+
 .metric-value {
   font-size: 40px;
   font-weight: 700;
   color: #2447A0;
-  margin-bottom: 12px;
   line-height: 1.2;
+}
+
+.metric-unit-label {
+  font-size: 14px;
+  font-weight: 400;
+  color: #9ca3af;
+  margin-top: 4px;
+  line-height: 1;
 }
 
 .metric-comparisons {

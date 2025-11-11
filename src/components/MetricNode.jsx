@@ -31,19 +31,19 @@ const MetricNode = ({ data }) => {
         hasTrendView={data.hasTrendView}
         hasServiceLineView={data.hasServiceLineView}
       />
-      {/* Target handle for parents (level 1 and 2) - at bottom */}
+      {/* Target handle for parents (level 1 and 2) - at bottom, hidden */}
       {level <= 2 && (
         <Handle
           type="target"
           position={Position.Bottom}
-          style={{ background: '#2447A0', width: '8px', height: '8px' }}
+          style={{ background: '#2447A0', width: '8px', height: '8px', opacity: 0, pointerEvents: 'none' }}
         />
       )}
-      {/* Source handle on right side for view nodes */}
+      {/* Source handle on right side for view nodes, hidden */}
       <Handle
         type="source"
         position={Position.Right}
-        style={{ background: '#FFA823', width: '8px', height: '8px' }}
+        style={{ background: '#FFA823', width: '8px', height: '8px', opacity: 0, pointerEvents: 'none' }}
         id="view-source"
       />
     </div>

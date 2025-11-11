@@ -64,12 +64,30 @@
   right: 240px !important;
   left: auto !important;
   top: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+}
+
+/* Hide the lock button in React Flow controls */
+.react-flow__controls-button:last-child,
+.react-flow__controls-button[title*="lock" i],
+.react-flow__controls-button[aria-label*="lock" i],
+button[title*="lock" i],
+button[aria-label*="lock" i] {
+  display: none !important;
+}
+
+/* Alternative: Hide the 4th button (lock is typically last) */
+.react-flow__controls > button:nth-child(4) {
+  display: none !important;
 }
 
 .react-flow__minimap {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   bottom: 20px !important;
   right: 20px !important;
+  top: auto !important;
 }
 
 /* Snapshot Date Control */

@@ -288,7 +288,7 @@ export const formatValue = (value, unit) => {
     return `${value.toFixed(0)}`;
   }
   if (unit === 'hours') {
-    return `${value.toFixed(0)} hours`;
+    return `${value.toFixed(0)}`;
   }
   return value.toString();
 };

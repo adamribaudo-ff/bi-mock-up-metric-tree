@@ -85,8 +85,13 @@ const MetricCard = ({ metric, isExpanded, onToggleExpand, onCreateTrendView, onC
 
       <div className="metric-content">
         <div className="metric-view">
-          <div className="metric-value">
-            {formatValue(metric.currentValue, metric.unit)}
+          <div className="metric-value-container">
+            <div className="metric-value">
+              {formatValue(metric.currentValue, metric.unit)}
+            </div>
+            {metric.unit === 'hours' && (
+              <div className="metric-unit-label">Hours</div>
+            )}
           </div>
           <div className="metric-comparisons">
             <span className={`comparison mom ${metric.mom < 0 ? 'negative' : ''}`}>
