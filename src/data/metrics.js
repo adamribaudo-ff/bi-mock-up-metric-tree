@@ -20,6 +20,30 @@ const generateYearToDateData = (startValue, trend = 'up') => {
   return data;
 };
 
+// Generate budget gap stacked revenue data with targets
+const generateBudgetGapData = () => {
+  const months = ['2025', 'Mar', 'May', 'Jul', 'Sep', 'Nov'];
+  const data = [];
+  
+  months.forEach((month, index) => {
+    // Generate realistic revenue data
+    const baseSecured = 800000 + (index * 50000) + Math.random() * 200000;
+    const actualRevenue = month === 'Nov' ? 600000 : (Math.random() * 200000);
+    const identifiedUnsecured = month === 'Nov' ? 70000 : 0;
+    const target = 1000000 + (index * 20000) + (Math.random() * 100000);
+    
+    data.push({
+      month,
+      securedRevenue: Math.round(baseSecured),
+      actualRevenue: Math.round(actualRevenue),
+      identifiedUnsecuredRevenue: Math.round(identifiedUnsecured),
+      target: Math.round(target)
+    });
+  });
+  
+  return data;
+};
+
 // Generate service line breakdown
 const generateServiceLineData = () => {
   return [
@@ -67,9 +91,8 @@ export const metrics = [
     parentId: null,
     level: 1,
     trendData: generateYearToDateData(2000000, 'up'),
+    budgetGapData: generateBudgetGapData(), // Special data for stacked bar chart
     serviceLineData: generateServiceLineData(),
-    businessUnitData: generateBusinessUnitData(),
-    accountPortfolioData: generateAccountPortfolioData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 600, y: 50 }

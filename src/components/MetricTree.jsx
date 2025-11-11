@@ -7,8 +7,10 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   addEdge,
+  NodeToolbar,
+  Position,
 } from 'reactflow';
-import 'reactflow/dist/style.css';
+import 'reactflow/dist/base.css';
 import MetricNode from './MetricNode';
 import TrendViewNode from './TrendViewNode';
 import ServiceLineViewNode from './ServiceLineViewNode';
@@ -163,7 +165,7 @@ const MetricTree = () => {
   // Filter visible metrics: level 1, level 2, and level 3 if parent is expanded
   const visibleMetrics = useMemo(() => {
     if (!metrics || metrics.length === 0) return [];
-    return metrics.filter((metric) => {
+    const visible = metrics.filter((metric) => {
       if (metric.level === 1 || metric.level === 2) {
         return true;
       }
@@ -173,6 +175,7 @@ const MetricTree = () => {
       }
       return false;
     });
+    return visible;
   }, [metrics, expandedMetrics]);
 
   // Calculate auto-layout positions for nodes
@@ -287,7 +290,7 @@ const MetricTree = () => {
     });
   }, []);
 
-  // Remove view node
+  // Remove view node (but preserve position and size for when it's toggled back on)
   const removeViewNode = useCallback((metricId, viewType) => {
     setViewNodes((prev) => {
       const next = new Map(prev);
@@ -297,9 +300,11 @@ const MetricTree = () => {
       let viewNodeIdToRemove = null;
       if (viewType === 'trend') {
         viewNodeIdToRemove = existing.trendViewId;
+        // Only delete the view node ID, preserve trendPosition and trendSize
         delete existing.trendViewId;
       } else {
         viewNodeIdToRemove = existing.serviceLineViewId;
+        // Only delete the view node ID, preserve serviceLinePosition and serviceLineSize
         delete existing.serviceLineViewId;
       }
       
@@ -312,11 +317,8 @@ const MetricTree = () => {
         });
       }
       
-      if (Object.keys(existing).length === 0) {
-        next.delete(metricId);
-      } else {
-        next.set(metricId, existing);
-      }
+      // Always keep the entry even if only position/size remain, so state is preserved
+      next.set(metricId, existing);
       return next;
     });
   }, []);
@@ -325,9 +327,10 @@ const MetricTree = () => {
   const initialNodes = useMemo(() => {
     const nodePositions = calculateNodePositions(visibleMetrics, expandedMetrics);
     
-    return visibleMetrics.map((metric) => {
+    const nodes = visibleMetrics.map((metric) => {
       const position = nodePositions.get(metric.id) || metric.position;
       const viewNodeInfo = viewNodes.get(metric.id) || {};
+      const hasToggle = metric.level === 2;
       
       return {
         id: metric.id,
@@ -336,16 +339,20 @@ const MetricTree = () => {
         data: { 
           metric,
           isExpanded: expandedMetrics.has(metric.id),
-          onToggleExpand: metric.level === 2 ? () => toggleExpansion(metric.id) : null,
+          onToggleExpand: hasToggle ? () => toggleExpansion(metric.id) : null,
           onCreateTrendView: () => {
-            if (viewNodeInfo.trendViewId) {
+            // Check current state, not captured closure
+            const currentViewInfo = viewNodes.get(metric.id) || {};
+            if (currentViewInfo.trendViewId) {
               removeViewNode(metric.id, 'trend');
             } else {
               createViewNodes(metric.id, 'trend');
             }
           },
           onCreateServiceLineView: () => {
-            if (viewNodeInfo.serviceLineViewId) {
+            // Check current state, not captured closure
+            const currentViewInfo = viewNodes.get(metric.id) || {};
+            if (currentViewInfo.serviceLineViewId) {
               removeViewNode(metric.id, 'serviceLine');
             } else {
               createViewNodes(metric.id, 'serviceLine');
@@ -357,6 +364,8 @@ const MetricTree = () => {
         draggable: true,
       };
     });
+    
+    return nodes;
   }, [visibleMetrics, expandedMetrics, toggleExpansion, calculateNodePositions, viewNodes, createViewNodes, removeViewNode]);
 
   // Create edges - reversed direction (child -> parent)
@@ -374,13 +383,13 @@ const MetricTree = () => {
             type: 'smoothstep',
             animated: true,
             style: { 
-              stroke: '#2447A0', 
+              stroke: 'rgba(255, 255, 255, 0.8)', 
               strokeWidth: 2, 
               strokeDasharray: '8,4',
             },
             markerEnd: {
               type: 'arrowclosed',
-              color: '#2447A0',
+              color: 'rgba(255, 255, 255, 0.8)',
             },
           });
         }
@@ -401,18 +410,55 @@ const MetricTree = () => {
       if (viewInfo.trendViewId) {
         const metric = metrics.find(m => m.id === metricId);
         if (metric) {
+          const isBudgetGap = metric.id === 'budget-gap';
+          const defaultWidth = isBudgetGap ? 500 : 450;
+          const defaultHeight = isBudgetGap ? 400 : 350;
+          
+          // Use saved position/size if available, otherwise use defaults
+          const savedSize = viewInfo.trendSize || {
+            width: defaultWidth,
+            height: defaultHeight,
+          };
+          
+          // Calculate vertical alignment: center the trend chart with the metric card
+          // Metric cards are approximately 280px tall (including padding), trend chart default height varies
+          const metricCardHeight = 280; // Approximate metric card height
+          const trendCardHeight = savedSize.height;
+          const verticalOffset = (metricCardHeight - trendCardHeight) / 2;
+          
+          const savedPosition = viewInfo.trendPosition || {
+            x: metricNode.position.x + 320, // Closer to the card (reduced from 350)
+            y: metricNode.position.y + verticalOffset, // Vertically centered
+          };
+          
           viewNodeList.push({
             id: viewInfo.trendViewId,
             type: 'trendView',
-            position: {
-              x: metricNode.position.x + 350,
-              y: metricNode.position.y,
-            },
+            position: savedPosition,
             data: { 
               metric,
-              onClose: () => removeViewNode(metricId, 'trend')
+              onClose: () => removeViewNode(metricId, 'trend'),
+              onPositionChange: (position) => {
+                setViewNodes((prev) => {
+                  const next = new Map(prev);
+                  const existing = next.get(metricId) || {};
+                  existing.trendPosition = position;
+                  next.set(metricId, existing);
+                  return next;
+                });
+              },
+              onSizeChange: (size) => {
+                setViewNodes((prev) => {
+                  const next = new Map(prev);
+                  const existing = next.get(metricId) || {};
+                  existing.trendSize = size;
+                  next.set(metricId, existing);
+                  return next;
+                });
+              }
             },
             draggable: true,
+            style: savedSize,
           });
         }
       }
@@ -420,26 +466,75 @@ const MetricTree = () => {
       if (viewInfo.serviceLineViewId) {
         const metric = metrics.find(m => m.id === metricId);
         if (metric) {
-          const yOffset = viewInfo.trendViewId ? 180 : 0;
+          const defaultWidth = 450;
+          const defaultHeight = 350;
+          
+          // Use saved position/size if available, otherwise use defaults
+          const savedSize = viewInfo.serviceLineSize || {
+            width: defaultWidth,
+            height: defaultHeight,
+          };
+          
+          // Calculate vertical alignment: center the breakdown chart with the metric card
+          const metricCardHeight = 280; // Approximate metric card height
+          const breakdownCardHeight = savedSize.height;
+          const verticalOffset = (metricCardHeight - breakdownCardHeight) / 2;
+          
+          // If there's a trend view, position below it; otherwise center with metric card
+          let yPosition;
+          if (viewInfo.trendViewId) {
+            // Position below the trend view
+            const trendNode = viewNodeList.find(n => n.id === viewInfo.trendViewId);
+            if (trendNode) {
+              const trendHeight = trendNode.style?.height || (trendNode.data?.metric?.id === 'budget-gap' ? 400 : 350);
+              yPosition = trendNode.position.y + trendHeight + 20; // 20px gap
+            } else {
+              yPosition = metricNode.position.y + verticalOffset;
+            }
+          } else {
+            yPosition = metricNode.position.y + verticalOffset;
+          }
+          
+          const savedPosition = viewInfo.serviceLinePosition || {
+            x: metricNode.position.x + 320, // Closer to the card
+            y: yPosition,
+          };
+          
           viewNodeList.push({
             id: viewInfo.serviceLineViewId,
             type: 'serviceLineView',
-            position: {
-              x: metricNode.position.x + 350,
-              y: metricNode.position.y + yOffset,
-            },
+            position: savedPosition,
             data: { 
               metric,
-              onClose: () => removeViewNode(metricId, 'serviceLine')
+              onClose: () => removeViewNode(metricId, 'serviceLine'),
+              onPositionChange: (position) => {
+                setViewNodes((prev) => {
+                  const next = new Map(prev);
+                  const existing = next.get(metricId) || {};
+                  existing.serviceLinePosition = position;
+                  next.set(metricId, existing);
+                  return next;
+                });
+              },
+              onSizeChange: (size) => {
+                setViewNodes((prev) => {
+                  const next = new Map(prev);
+                  const existing = next.get(metricId) || {};
+                  existing.serviceLineSize = size;
+                  next.set(metricId, existing);
+                  return next;
+                });
+              }
             },
             draggable: true,
+            style: savedSize,
           });
         }
       }
     });
 
     return [...metricNodes, ...viewNodeList];
-  }, [initialNodes, viewNodes, metrics, removeViewNode]);
+  }, [initialNodes, viewNodes, metrics, removeViewNode, expandedMetrics]);
 
   // Include view node edges
   const allEdges = useMemo(() => {
@@ -491,64 +586,45 @@ const MetricTree = () => {
     return [...metricEdges, ...viewEdges];
   }, [initialEdges, viewNodes]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(allNodes);
+  // Don't use allNodes as initial value - it changes and useNodesState will reset nodes, losing functions
+  // Instead, use empty array and manage nodes entirely through our useEffect
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState(allEdges);
   const reactFlowInstance = React.useRef(null);
   const hasRestoredPositions = React.useRef(false);
 
-  // Auto-save state to localStorage
+  // Auto-save state to localStorage using React Flow's toObject()
   const autoSaveState = useCallback(() => {
     if (!reactFlowInstance.current) return;
 
-    // Use a function to get current state to avoid stale closures
-    setNodes((currentNodes) => {
-      setEdges((currentEdges) => {
-        const viewport = reactFlowInstance.current?.getViewport() || { x: 0, y: 0, zoom: 1 };
-        
-        const state = {
-          nodes: currentNodes.map(node => ({
-            id: node.id,
-            type: node.type,
-            position: node.position,
-            data: {
-              metricId: node.data.metric?.id,
-              isExpanded: node.data.isExpanded,
-            },
-            selected: node.selected,
-          })),
-          edges: currentEdges.map(edge => ({
-            id: edge.id,
-            source: edge.source,
-            target: edge.target,
-            sourceHandle: edge.sourceHandle,
-            targetHandle: edge.targetHandle,
-            type: edge.type,
-            style: edge.style,
-            animated: edge.animated,
-            markerEnd: edge.markerEnd,
-          })),
-          viewport: viewport,
-          expandedMetrics: Array.from(expandedMetrics),
-          viewNodes: Array.from(viewNodes.entries()).map(([key, value]) => [key, value]),
-          manuallyMovedViewNodes: Array.from(manuallyMovedViewNodes),
-          snapshotDate: snapshotDate,
-        };
-        
-        localStorage.setItem(getStorageKey('fullState'), JSON.stringify(state));
-        
-        // Also save individual state pieces for easier loading
-        localStorage.setItem(getStorageKey('expandedMetrics'), JSON.stringify(Array.from(expandedMetrics)));
-        localStorage.setItem(getStorageKey('viewNodes'), JSON.stringify(Array.from(viewNodes.entries())));
-        localStorage.setItem(getStorageKey('manuallyMovedViewNodes'), JSON.stringify(Array.from(manuallyMovedViewNodes)));
-        localStorage.setItem(getStorageKey('snapshotDate'), snapshotDate);
-        return currentEdges;
-      });
-      return currentNodes;
-    });
-  }, [expandedMetrics, viewNodes, manuallyMovedViewNodes, snapshotDate, setNodes, setEdges]);
+    // Use React Flow's toObject() to get nodes, edges, and viewport
+    const flow = reactFlowInstance.current.toObject();
+    
+    // Combine React Flow state with our custom state
+    const state = {
+      ...flow, // Contains nodes, edges, and viewport
+      expandedMetrics: Array.from(expandedMetrics),
+      viewNodes: Array.from(viewNodes.entries()).map(([key, value]) => [key, value]),
+      manuallyMovedViewNodes: Array.from(manuallyMovedViewNodes),
+      snapshotDate: snapshotDate,
+    };
+    
+    localStorage.setItem(getStorageKey('fullState'), JSON.stringify(state));
+    
+    // Also save individual state pieces for easier loading
+    localStorage.setItem(getStorageKey('expandedMetrics'), JSON.stringify(Array.from(expandedMetrics)));
+    localStorage.setItem(getStorageKey('viewNodes'), JSON.stringify(Array.from(viewNodes.entries())));
+    localStorage.setItem(getStorageKey('manuallyMovedViewNodes'), JSON.stringify(Array.from(manuallyMovedViewNodes)));
+    localStorage.setItem(getStorageKey('snapshotDate'), snapshotDate);
+  }, [expandedMetrics, viewNodes, manuallyMovedViewNodes, snapshotDate, getStorageKey]);
 
   // Handle node drag - mark view nodes as manually moved during drag
   const handleNodeDrag = useCallback((event, node) => {
+    // Check if the drag originated from a resize handle
+    const target = event.target;
+    if (target && target.closest && target.closest('.trend-view-resize-handle')) {
+      return; // Don't handle drag if it's from resize handle
+    }
     if (node.type === 'trendView' || node.type === 'serviceLineView') {
       setManuallyMovedViewNodes((prev) => {
         if (prev.has(node.id)) return prev; // Already marked
@@ -556,9 +632,16 @@ const MetricTree = () => {
       });
     }
   }, []);
+  
 
-  // Handle node drag stop - auto-save state
-  const handleNodeDragStop = useCallback(() => {
+  // Handle node drag stop - save position for view nodes and auto-save state
+  const handleNodeDragStop = useCallback((event, node) => {
+    // If it's a view node, save its position to viewNodes state
+    if (node.type === 'trendView' || node.type === 'serviceLineView') {
+      if (node.data?.onPositionChange) {
+        node.data.onPositionChange(node.position);
+      }
+    }
     // Auto-save after a short delay to ensure state is updated
     setTimeout(() => {
       autoSaveState();
@@ -581,19 +664,32 @@ const MetricTree = () => {
         if (viewInfo.trendViewId) {
           const trendNode = updatedNodes.find(n => n.id === viewInfo.trendViewId);
           if (trendNode && !manuallyMovedViewNodes.has(trendNode.id)) {
-            const expectedX = metricNode.position.x + 350;
-            const expectedY = metricNode.position.y;
-            // Check if node is significantly away from expected position (was manually moved)
-            const distance = Math.sqrt(
-              Math.pow(trendNode.position.x - expectedX, 2) + 
-              Math.pow(trendNode.position.y - expectedY, 2)
-            );
-            // If it's far from expected position, mark as manually moved (but do it outside this callback)
-            if (distance > 50) {
+            // If there's a saved position, use it and mark as manually moved
+            if (viewInfo.trendPosition) {
+              if (trendNode.position.x !== viewInfo.trendPosition.x || trendNode.position.y !== viewInfo.trendPosition.y) {
+                trendNode.position = viewInfo.trendPosition;
+                hasChanges = true;
+              }
               nodesToMarkAsMoved.push(trendNode.id);
-            } else if (trendNode.position.x !== expectedX || trendNode.position.y !== expectedY) {
-              trendNode.position = { x: expectedX, y: expectedY };
-              hasChanges = true;
+            } else {
+              // No saved position, use default positioning
+              const expectedX = metricNode.position.x + 320;
+              const metricCardHeight = 280;
+              const trendCardHeight = trendNode.style?.height || (trendNode.data?.metric?.id === 'budget-gap' ? 400 : 350);
+              const verticalOffset = (metricCardHeight - trendCardHeight) / 2;
+              const expectedY = metricNode.position.y + verticalOffset;
+              // Check if node is significantly away from expected position (was manually moved)
+              const distance = Math.sqrt(
+                Math.pow(trendNode.position.x - expectedX, 2) + 
+                Math.pow(trendNode.position.y - expectedY, 2)
+              );
+              // If it's far from expected position, mark as manually moved (but do it outside this callback)
+              if (distance > 50) {
+                nodesToMarkAsMoved.push(trendNode.id);
+              } else if (trendNode.position.x !== expectedX || trendNode.position.y !== expectedY) {
+                trendNode.position = { x: expectedX, y: expectedY };
+                hasChanges = true;
+              }
             }
           }
         }
@@ -601,20 +697,43 @@ const MetricTree = () => {
         if (viewInfo.serviceLineViewId) {
           const serviceLineNode = updatedNodes.find(n => n.id === viewInfo.serviceLineViewId);
           if (serviceLineNode && !manuallyMovedViewNodes.has(serviceLineNode.id)) {
-            const yOffset = viewInfo.trendViewId ? 180 : 0;
-            const expectedX = metricNode.position.x + 350;
-            const expectedY = metricNode.position.y + yOffset;
-            // Check if node is significantly away from expected position (was manually moved)
-            const distance = Math.sqrt(
-              Math.pow(serviceLineNode.position.x - expectedX, 2) + 
-              Math.pow(serviceLineNode.position.y - expectedY, 2)
-            );
-            // If it's far from expected position, mark as manually moved (but do it outside this callback)
-            if (distance > 50) {
+            // If there's a saved position, use it and mark as manually moved
+            if (viewInfo.serviceLinePosition) {
+              if (serviceLineNode.position.x !== viewInfo.serviceLinePosition.x || serviceLineNode.position.y !== viewInfo.serviceLinePosition.y) {
+                serviceLineNode.position = viewInfo.serviceLinePosition;
+                hasChanges = true;
+              }
               nodesToMarkAsMoved.push(serviceLineNode.id);
-            } else if (serviceLineNode.position.x !== expectedX || serviceLineNode.position.y !== expectedY) {
-              serviceLineNode.position = { x: expectedX, y: expectedY };
-              hasChanges = true;
+            } else {
+              // No saved position, use default positioning
+              const defaultHeight = 350;
+              const breakdownCardHeight = serviceLineNode.style?.height || defaultHeight;
+              const metricCardHeight = 280;
+              const verticalOffset = (metricCardHeight - breakdownCardHeight) / 2;
+              let expectedY = metricNode.position.y + verticalOffset;
+              
+              // If there's a trend view, position below it
+              if (viewInfo.trendViewId) {
+                const trendNode = updatedNodes.find(n => n.id === viewInfo.trendViewId);
+                if (trendNode) {
+                  const trendHeight = trendNode.style?.height || defaultHeight;
+                  expectedY = trendNode.position.y + trendHeight + 20; // 20px gap
+                }
+              }
+              
+              const expectedX = metricNode.position.x + 320;
+              // Check if node is significantly away from expected position (was manually moved)
+              const distance = Math.sqrt(
+                Math.pow(serviceLineNode.position.x - expectedX, 2) + 
+                Math.pow(serviceLineNode.position.y - expectedY, 2)
+              );
+              // If it's far from expected position, mark as manually moved (but do it outside this callback)
+              if (distance > 50) {
+                nodesToMarkAsMoved.push(serviceLineNode.id);
+              } else if (serviceLineNode.position.x !== expectedX || serviceLineNode.position.y !== expectedY) {
+                serviceLineNode.position = { x: expectedX, y: expectedY };
+                hasChanges = true;
+              }
             }
           }
         }
@@ -646,14 +765,18 @@ const MetricTree = () => {
       .flatMap(v => [v.trendViewId, v.serviceLineViewId].filter(Boolean))
       .sort()
       .join(',');
-    const nodeStructureKey = `${metricIds}|${viewNodeIds}`;
+    const expandedMetricsKey = Array.from(expandedMetrics).sort().join(',');
+    // Include expandedMetrics in structure key to ensure updates when expansion changes
+    const nodeStructureKey = `${metricIds}|${viewNodeIds}|${expandedMetricsKey}`;
     
-    // Only update if the node structure (IDs/types) has actually changed
+    // Only update if the node structure has actually changed
     if (lastNodeStructureRef.current === nodeStructureKey) {
       return;
     }
     lastNodeStructureRef.current = nodeStructureKey;
     
+    // Force update nodes when allNodes changes
+    // Use the latest allNodes directly to ensure we have fresh data
     setNodes((currentNodes) => {
       // Create a map of existing node positions
       const positionMap = new Map();
@@ -661,8 +784,9 @@ const MetricTree = () => {
         positionMap.set(node.id, node.position);
       });
 
-      // Merge new nodes with existing positions
-      return allNodes.map(newNode => {
+      // Start with all new nodes from allNodes (which is already up-to-date from the closure)
+      // Map over allNodes to preserve all node data including fresh callbacks
+      const updatedNodes = allNodes.map(newNode => {
         // For view nodes, position them relative to their metric card only if not manually moved
         if (newNode.type === 'trendView' || newNode.type === 'serviceLineView') {
           // Find the metric node this view belongs to
@@ -670,35 +794,126 @@ const MetricTree = () => {
           const metricNode = currentNodes.find(n => n.id === metricId) || allNodes.find(n => n.id === metricId);
           if (metricNode) {
             const existingViewNode = currentNodes.find(n => n.id === newNode.id);
-            // If view node was manually moved, preserve its position
-            if (existingViewNode && manuallyMovedViewNodes.has(newNode.id)) {
-              return { ...newNode, position: existingViewNode.position };
+            // If view node already exists, preserve its position and style
+            if (existingViewNode) {
+              const preservedNode = { ...newNode, position: existingViewNode.position };
+              // Preserve style if it exists (contains saved size)
+              if (existingViewNode.style) {
+                preservedNode.style = existingViewNode.style;
+              }
+              // If manually moved, we're done
+              if (manuallyMovedViewNodes.has(newNode.id)) {
+                return preservedNode;
+              }
+              // Otherwise, continue to check for saved position/size
             }
-            // If view node already exists, preserve its position (will be updated by the other useEffect if needed)
-            if (existingViewNode && existingViewNode.position) {
-              return { ...newNode, position: existingViewNode.position };
+            
+            // Check for saved position/size in viewNodes state (for when toggling back on)
+            const viewInfo = viewNodes.get(metricId) || {};
+            if (newNode.type === 'trendView' && viewInfo.trendPosition) {
+              // Use saved position if available, and mark as manually moved so it doesn't get repositioned
+              setTimeout(() => {
+                setManuallyMovedViewNodes((prev) => new Set(prev).add(newNode.id));
+              }, 0);
+              return { 
+                ...newNode, 
+                position: viewInfo.trendPosition,
+                style: viewInfo.trendSize || newNode.style
+              };
             }
+            if (newNode.type === 'serviceLineView' && viewInfo.serviceLinePosition) {
+              // Use saved position if available, and mark as manually moved so it doesn't get repositioned
+              setTimeout(() => {
+                setManuallyMovedViewNodes((prev) => new Set(prev).add(newNode.id));
+              }, 0);
+              return { 
+                ...newNode, 
+                position: viewInfo.serviceLinePosition,
+                style: viewInfo.serviceLineSize || newNode.style
+              };
+            }
+            
             // New view node, position relative to metric
-            const yOffset = (newNode.type === 'serviceLineView' && viewNodes.get(metricId)?.trendViewId) ? 180 : 0;
-            return { 
-              ...newNode, 
-              position: { 
-                x: metricNode.position.x + 350, 
-                y: metricNode.position.y + yOffset 
-              } 
-            };
+            if (newNode.type === 'trendView') {
+              // Calculate vertical alignment for trend views
+              const metricCardHeight = 280;
+              const trendCardHeight = newNode.style?.height || (newNode.data?.metric?.id === 'budget-gap' ? 400 : 350);
+              const verticalOffset = (metricCardHeight - trendCardHeight) / 2;
+              return { 
+                ...newNode, 
+                position: { 
+                  x: metricNode.position.x + 320, 
+                  y: metricNode.position.y + verticalOffset 
+                } 
+              };
+            }
+            // Service line views
+            if (newNode.type === 'serviceLineView') {
+              const defaultHeight = 350;
+              const breakdownCardHeight = newNode.style?.height || defaultHeight;
+              const metricCardHeight = 280;
+              const verticalOffset = (metricCardHeight - breakdownCardHeight) / 2;
+              
+              // If there's a trend view, position below it
+              const trendViewId = viewNodes.get(metricId)?.trendViewId;
+              if (trendViewId) {
+                const trendNode = currentNodes.find(n => n.id === trendViewId) || allNodes.find(n => n.id === trendViewId);
+                if (trendNode) {
+                  const trendHeight = trendNode.style?.height || defaultHeight;
+                  return { 
+                    ...newNode, 
+                    position: { 
+                      x: metricNode.position.x + 320, 
+                      y: trendNode.position.y + trendHeight + 20 // 20px gap below trend
+                    } 
+                  };
+                }
+              }
+              
+              // Otherwise center with metric card
+              return { 
+                ...newNode, 
+                position: { 
+                  x: metricNode.position.x + 320, 
+                  y: metricNode.position.y + verticalOffset 
+                } 
+              };
+            }
           }
         }
         
         // For metric nodes, preserve existing position if it exists
+        // But always use the new node data to ensure callbacks are up to date
         const existingPosition = positionMap.get(newNode.id);
-        if (existingPosition) {
-          return { ...newNode, position: existingPosition };
+        if (existingPosition && newNode.type === 'metric') {
+          // Preserve position but use all other data from newNode (including updated callbacks)
+          // Create a completely new object to ensure React Flow sees it as changed
+          return { 
+            id: newNode.id,
+            type: newNode.type,
+            position: existingPosition,
+            data: { 
+              ...newNode.data, // Fresh copy with all callbacks
+              // Ensure these are fresh references
+              metric: newNode.data.metric,
+              isExpanded: newNode.data.isExpanded,
+              onToggleExpand: newNode.data.onToggleExpand,
+              onCreateTrendView: newNode.data.onCreateTrendView,
+              onCreateServiceLineView: newNode.data.onCreateServiceLineView,
+              hasTrendView: newNode.data.hasTrendView,
+              hasServiceLineView: newNode.data.hasServiceLineView,
+            },
+            draggable: newNode.draggable,
+          };
         }
-        return newNode;
+        // No existing position, use newNode as-is (but ensure it's a new object)
+        return { ...newNode };
       });
+
+      // Return only the updated nodes (this removes any nodes that are no longer in allNodes)
+      return updatedNodes;
     });
-  }, [visibleMetrics, viewNodes, setNodes, manuallyMovedViewNodes]);
+  }, [visibleMetrics, viewNodes, setNodes, manuallyMovedViewNodes, allNodes, expandedMetrics]);
 
   // Track edge structure changes using refs to avoid infinite loops
   const lastEdgeStructureRef = useRef('');
@@ -766,7 +981,7 @@ const MetricTree = () => {
     }
   }, [snapshotDate, autoSaveState, getStorageKey]);
 
-  // Reset view - clear saved state and reset to defaults
+  // Reset metrics - clear saved state and reset to defaults (without changing zoom/pan)
   const resetView = useCallback(() => {
     // Clear localStorage for current page
     localStorage.removeItem(getStorageKey('fullState'));
@@ -782,13 +997,8 @@ const MetricTree = () => {
     setSnapshotDate('2025-11');
     hasRestoredPositions.current = false;
     
-    // Reset viewport - use a lower zoom to show more of the canvas
-    if (reactFlowInstance.current) {
-      reactFlowInstance.current.setViewport({ x: 0, y: 0, zoom: 0.5 });
-    }
-    
     // Force nodes to recalculate positions from initial metric positions
-    // Wait for state updates to propagate, then recalculate
+    // Wait for state updates to propagate, then recalculate positions
     setTimeout(() => {
       setNodes((currentNodes) => {
         // Filter to only metric nodes for recalculation
@@ -810,7 +1020,7 @@ const MetricTree = () => {
         const defaultExpanded = new Set(metrics.length > 0 ? ['sales-pipeline'] : []);
         const nodePositions = calculateNodePositions(currentVisibleMetrics, defaultExpanded);
         
-        return currentNodes.map(node => {
+        const updatedNodes = currentNodes.map(node => {
           // Only reset metric nodes, not view nodes
           if (node.type === 'metric') {
             const metric = metrics.find(m => m.id === node.id);
@@ -823,71 +1033,34 @@ const MetricTree = () => {
           }
           return node;
         });
+        
+        return updatedNodes;
       });
     }, 200);
-  }, [getStorageKey, metrics, calculateNodePositions, setNodes]);
+  }, [metrics, calculateNodePositions, getStorageKey]);
 
-  // Restore viewport on initial load
+  // Restore flow state on initial load using React Flow's toObject() format
   useEffect(() => {
-    const storageKey = `metricTreeState-${currentPage}-fullState`;
-    const saved = localStorage.getItem(storageKey);
-    if (!saved || !reactFlowInstance.current) return;
+    const saved = localStorage.getItem(getStorageKey('fullState'));
+    if (!saved || !reactFlowInstance.current || hasRestoredPositions.current) return;
     
     try {
       const state = JSON.parse(saved);
       
-      // Restore viewport after React Flow is initialized
+      // DON'T restore nodes/edges from localStorage - they don't have function callbacks
+      // Instead, let our structure update useEffect handle node creation with fresh callbacks
+      // Only restore viewport
       if (state.viewport) {
         setTimeout(() => {
           reactFlowInstance.current?.setViewport(state.viewport);
         }, 200);
       }
+      
+      hasRestoredPositions.current = true;
     } catch (error) {
-      console.error('Error restoring viewport on load:', error);
+      console.error('Error restoring flow state:', error);
     }
-  }, [currentPage]); // Run when page changes
-
-  // Restore node positions from saved state after nodes are created
-  useEffect(() => {
-    const saved = localStorage.getItem(getStorageKey('fullState'));
-    if (!saved || nodes.length === 0 || hasRestoredPositions.current) return;
-    
-    try {
-      const state = JSON.parse(saved);
-      if (!state.nodes || state.nodes.length === 0) return;
-      
-      // Create a map of saved positions
-      const savedPositions = new Map();
-      state.nodes.forEach(node => {
-        savedPositions.set(node.id, node.position);
-      });
-      
-      // Check if any positions need to be restored
-      const needsRestore = nodes.some(node => {
-        const savedPosition = savedPositions.get(node.id);
-        return savedPosition && (
-          Math.abs(node.position.x - savedPosition.x) > 1 || 
-          Math.abs(node.position.y - savedPosition.y) > 1
-        );
-      });
-      
-      if (needsRestore) {
-        // Update node positions if they exist in saved state
-        setNodes((currentNodes) => {
-          return currentNodes.map(node => {
-            const savedPosition = savedPositions.get(node.id);
-            if (savedPosition) {
-              return { ...node, position: savedPosition };
-            }
-            return node;
-          });
-        });
-        hasRestoredPositions.current = true;
-      }
-    } catch (error) {
-      console.error('Error restoring node positions:', error);
-    }
-  }, [nodes.length, setNodes, currentPage]); // Run when node count or page changes
+  }, [nodes.length, getStorageKey]); // Run when node count or page changes
 
   // Show empty state if no metrics
   if (!metrics || metrics.length === 0) {
@@ -904,8 +1077,8 @@ const MetricTree = () => {
   return (
     <div className="metric-tree-container">
       <div className="snapshot-date-control">
-        <button className="reset-view-btn" onClick={resetView} title="Reset view to defaults">
-          🔄 Reset View
+        <button className="reset-view-btn" onClick={resetView} title="Reset metrics to defaults">
+          🔄 Reset Metrics
         </button>
         <label htmlFor="snapshot-date-select" className="snapshot-date-label">
           Snapshot Date:
@@ -945,17 +1118,37 @@ const MetricTree = () => {
           variant="lines" 
           gap={20} 
           size={1}
-          color="#d1d5db"
+          color="rgba(174, 83, 186, 0.2)"
         />
         <Controls />
         <MiniMap
           nodeColor={(node) => {
-            if (node.data?.metric?.level === 1) return '#2447A0';
-            if (node.data?.metric?.level === 2) return '#2447A0';
-            return '#CCD7F3';
+            if (node.data?.metric?.level === 1) return '#ae53ba';
+            if (node.data?.metric?.level === 2) return '#2a8af6';
+            return '#ae53ba';
           }}
-          maskColor="rgba(36, 71, 160, 0.1)"
+          maskColor="rgba(10, 14, 39, 0.5)"
         />
+        <svg>
+          <defs>
+            <linearGradient id="edge-gradient">
+              <stop offset="0%" stopColor="#ae53ba" />
+              <stop offset="100%" stopColor="#2a8af6" />
+            </linearGradient>
+            <marker
+              id="edge-circle"
+              viewBox="-5 -5 10 10"
+              refX="0"
+              refY="0"
+              markerUnits="strokeWidth"
+              markerWidth="10"
+              markerHeight="10"
+              orient="auto"
+            >
+              <circle stroke="#2a8af6" strokeOpacity="0.75" r="2" cx="0" cy="0" fill="#2a8af6" />
+            </marker>
+          </defs>
+        </svg>
       </ReactFlow>
     </div>
   );

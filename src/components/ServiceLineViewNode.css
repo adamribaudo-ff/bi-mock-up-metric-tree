@@ -1,14 +1,31 @@
- .service-line-view-node {
+.service-line-view-node {
   position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 .service-line-view-card {
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 16px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3);
+  padding: 8px;
   min-width: 300px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  overflow: visible;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.service-line-view-chart-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .service-line-view-header {
@@ -44,7 +61,8 @@
 }
 
 .breakdown-select-container {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
 }
 
 .breakdown-select {

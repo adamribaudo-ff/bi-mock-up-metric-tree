@@ -2,7 +2,36 @@
   position: relative;
 }
 
-.metric-node .react-flow__handle {
-  border: 2px solid white;
+.metric-node-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
+.toolbar-btn {
+  padding: 8px 14px;
+  border: 1px solid rgba(209, 213, 219, 0.8);
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.toolbar-btn:hover {
+  background: #f9fafb;
+  border-color: #2447A0;
+  color: #2447A0;
+}
+
+.toolbar-btn.active {
+  background: linear-gradient(135deg, #2447A0 0%, #1e3a8a 100%);
+  border-color: #2447A0;
+  color: white;
+}

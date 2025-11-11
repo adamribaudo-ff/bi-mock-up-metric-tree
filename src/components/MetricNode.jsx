@@ -1,9 +1,9 @@
-import { memo } from 'react';
-import { Handle, Position } from 'reactflow';
+import { useState } from 'react';
+import { Handle, Position, NodeToolbar } from 'reactflow';
 import MetricCard from './MetricCard';
 import './MetricNode.css';
 
-const MetricNode = ({ data }) => {
+const MetricNode = ({ data, selected }) => {
   // Edges go from child to parent:
   // - From top of child nodes to bottom of parent nodes
   // - Level 1: only target handle (bottom) - receives from level 2
@@ -11,9 +11,41 @@ const MetricNode = ({ data }) => {
   // - Level 3: only source handle (top) - sends to level 2
   // Also need source handle on right side for view nodes
   const level = data.metric.level;
+  const [showAIPrompt, setShowAIPrompt] = useState(false);
   
   return (
     <div className="metric-node">
+      <NodeToolbar isVisible={selected || showAIPrompt} position={Position.Top} className="metric-node-toolbar">
+        <button
+          className={`toolbar-btn ${data.hasTrendView ? 'active' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (data.onCreateTrendView) data.onCreateTrendView();
+          }}
+        >
+          Show Trend
+        </button>
+        {!data.metric.id.startsWith('capacity') && (
+          <button
+            className={`toolbar-btn ${data.hasServiceLineView ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (data.onCreateServiceLineView) data.onCreateServiceLineView();
+            }}
+          >
+            Show Breakdown
+          </button>
+        )}
+        <button
+          className="toolbar-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowAIPrompt(true);
+          }}
+        >
+          Ask AI
+        </button>
+      </NodeToolbar>
       {/* Source handle for children (level 2 and 3) - at top */}
       {level >= 2 && (
         <Handle
@@ -30,6 +62,9 @@ const MetricNode = ({ data }) => {
         onCreateServiceLineView={data.onCreateServiceLineView}
         hasTrendView={data.hasTrendView}
         hasServiceLineView={data.hasServiceLineView}
+        showAIPrompt={showAIPrompt}
+        onShowAIPrompt={() => setShowAIPrompt(true)}
+        onCloseAIPrompt={() => setShowAIPrompt(false)}
       />
       {/* Target handle for parents (level 1 and 2) - at bottom, hidden */}
       {level <= 2 && (
@@ -50,5 +85,7 @@ const MetricNode = ({ data }) => {
   );
 };
 
-export default memo(MetricNode);
+// Remove memo to ensure nodes update when data changes
+// The memo was preventing updates when onToggleExpand changed
+export default MetricNode;
 

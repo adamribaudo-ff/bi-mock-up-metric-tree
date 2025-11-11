@@ -1,7 +1,29 @@
 .metric-tree-container {
   width: 100%;
   height: 100vh;
-  background: #f3f4f6;
+  background: #0a0e27;
+  position: relative;
+}
+
+.metric-tree-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(174, 83, 186, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(42, 138, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 40% 20%, rgba(174, 83, 186, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .empty-state {
@@ -25,9 +47,13 @@
   margin: 0;
 }
 
-/* Style the grid background */
+/* Style the grid background - Turbo Flow style */
 .react-flow__background {
-  opacity: 0.6;
+  opacity: 0.3;
+}
+
+.react-flow__background-pattern {
+  stroke: rgba(174, 83, 186, 0.2);
 }
 
 .react-flow__node {
@@ -40,6 +66,7 @@
 
 .react-flow__edge-path {
   stroke-width: 2;
+  stroke: rgba(255, 255, 255, 0.8);
 }
 
 /* Animated edge - moving dots from child to parent (upward direction) */
@@ -58,8 +85,17 @@
   }
 }
 
+/* View node edges (trend/breakdown charts) */
+.react-flow__edge[style*="#FFA823"] .react-flow__edge-path {
+  stroke: #FFA823;
+}
+
 .react-flow__controls {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  background: rgba(10, 14, 39, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(174, 83, 186, 0.3);
+  border-radius: 8px;
   bottom: 20px !important;
   right: 240px !important;
   left: auto !important;
@@ -67,6 +103,17 @@
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
+}
+
+.react-flow__controls-button {
+  background: rgba(42, 138, 246, 0.1);
+  border: 1px solid rgba(42, 138, 246, 0.3);
+  color: #2a8af6;
+}
+
+.react-flow__controls-button:hover {
+  background: rgba(42, 138, 246, 0.2);
+  border-color: rgba(42, 138, 246, 0.5);
 }
 
 /* Hide the lock button in React Flow controls */
@@ -84,7 +131,11 @@ button[aria-label*="lock" i] {
 }
 
 .react-flow__minimap {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  background: rgba(10, 14, 39, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(174, 83, 186, 0.3);
+  border-radius: 8px;
   bottom: 20px !important;
   right: 20px !important;
   top: auto !important;
@@ -100,10 +151,18 @@ button[aria-label*="lock" i] {
   align-items: center;
   gap: 12px;
   background: white;
-  padding: 12px 16px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e5e7eb;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 14px 18px;
+  border-radius: 12px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(209, 213, 219, 0.8);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.snapshot-date-control:hover {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
 }
 
 .snapshot-date-label {
@@ -115,47 +174,68 @@ button[aria-label*="lock" i] {
 
 .snapshot-date-select {
   font-size: 14px;
-  padding: 6px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid rgba(209, 213, 219, 0.8);
+  border-radius: 8px;
   background: white;
   color: #374151;
   cursor: pointer;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 160px;
+  font-weight: 500;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.snapshot-date-select option {
+  background: white;
+  color: #374151;
+  padding: 8px;
+}
+
+.snapshot-date-select option:checked {
+  background: rgba(36, 71, 160, 0.1);
+  color: #2447A0;
 }
 
 .snapshot-date-select:hover {
   border-color: #2447A0;
+  background: #f9fafb;
+  box-shadow: 0 2px 4px rgba(36, 71, 160, 0.1);
 }
 
 .snapshot-date-select:focus {
   border-color: #2447A0;
-  box-shadow: 0 0 0 3px rgba(36, 71, 160, 0.1);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(36, 71, 160, 0.1), 0 4px 6px -1px rgba(36, 71, 160, 0.1);
 }
 
 /* Reset View Button */
 .reset-view-btn {
   font-size: 13px;
-  padding: 6px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid rgba(209, 213, 219, 0.8);
+  border-radius: 8px;
   background: white;
   color: #374151;
   cursor: pointer;
   outline: none;
-  transition: all 0.2s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .reset-view-btn:hover {
   border-color: #2447A0;
   background: #f9fafb;
   color: #2447A0;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(36, 71, 160, 0.2);
 }
 
 .reset-view-btn:active {
-  transform: translateY(1px);
+  transform: translateY(0) scale(0.98);
 }
 
