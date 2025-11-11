@@ -4,6 +4,27 @@
   background: #f3f4f6;
 }
 
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: #6b7280;
+}
+
+.empty-state h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 8px 0;
+}
+
+.empty-state p {
+  font-size: 16px;
+  margin: 0;
+}
+
 /* Style the grid background */
 .react-flow__background {
   opacity: 0.6;
@@ -39,10 +60,16 @@
 
 .react-flow__controls {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  bottom: 20px !important;
+  right: 240px !important;
+  left: auto !important;
+  top: auto !important;
 }
 
 .react-flow__minimap {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  bottom: 20px !important;
+  right: 20px !important;
 }
 
 /* Snapshot Date Control */
@@ -88,5 +115,29 @@
 .snapshot-date-select:focus {
   border-color: #2447A0;
   box-shadow: 0 0 0 3px rgba(36, 71, 160, 0.1);
+}
+
+/* Reset View Button */
+.reset-view-btn {
+  font-size: 13px;
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.reset-view-btn:hover {
+  border-color: #2447A0;
+  background: #f9fafb;
+  color: #2447A0;
+}
+
+.reset-view-btn:active {
+  transform: translateY(1px);
 }
 

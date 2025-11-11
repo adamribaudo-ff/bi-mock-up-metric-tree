@@ -12,7 +12,9 @@ import 'reactflow/dist/style.css';
 import MetricNode from './MetricNode';
 import TrendViewNode from './TrendViewNode';
 import ServiceLineViewNode from './ServiceLineViewNode';
-import { metrics, getChildren } from '../data/metrics';
+import { getMetricsForPage } from '../data/pageMetrics';
+import { getChildren } from '../data/metrics';
+import { usePage } from '../context/PageContext';
 import './MetricTree.css';
 
 const nodeTypes = {
@@ -22,18 +24,107 @@ const nodeTypes = {
 };
 
 const MetricTree = () => {
+  const { currentPage } = usePage();
+  const metrics = getMetricsForPage(currentPage);
+  
+  // Get storage key for current page (memoized)
+  const getStorageKey = useCallback((key) => `metricTreeState-${currentPage}-${key}`, [currentPage]);
+  
+  // Helper to get storage key (for use in initial state)
+  const getStorageKeySync = (key) => `metricTreeState-${currentPage}-${key}`;
+  
   // Track which level 2 metrics are expanded
-  // Default to having Sales Pipeline expanded
-  const [expandedMetrics, setExpandedMetrics] = useState(new Set(['sales-pipeline']));
+  // Default to having Sales Pipeline expanded (only for revenue-plan)
+  const [expandedMetrics, setExpandedMetrics] = useState(() => {
+    const saved = localStorage.getItem(getStorageKeySync('expandedMetrics'));
+    if (saved) {
+      try {
+        return new Set(JSON.parse(saved));
+      } catch (e) {
+        return new Set(metrics.length > 0 ? ['sales-pipeline'] : []);
+      }
+    }
+    return new Set(metrics.length > 0 ? ['sales-pipeline'] : []);
+  });
   
   // Track which view nodes exist (trend and service line views)
-  const [viewNodes, setViewNodes] = useState(new Map()); // Map<metricId, { trendViewId?, serviceLineViewId? }>
+  const [viewNodes, setViewNodes] = useState(() => {
+    const saved = localStorage.getItem(getStorageKeySync('viewNodes'));
+    if (saved) {
+      try {
+        return new Map(JSON.parse(saved));
+      } catch (e) {
+        return new Map();
+      }
+    }
+    return new Map();
+  });
   
   // Track which view nodes have been manually moved by the user
-  const [manuallyMovedViewNodes, setManuallyMovedViewNodes] = useState(new Set());
+  const [manuallyMovedViewNodes, setManuallyMovedViewNodes] = useState(() => {
+    const saved = localStorage.getItem(getStorageKeySync('manuallyMovedViewNodes'));
+    if (saved) {
+      try {
+        return new Set(JSON.parse(saved));
+      } catch (e) {
+        return new Set();
+      }
+    }
+    return new Set();
+  });
   
   // Snapshot date state - default to November 2025
-  const [snapshotDate, setSnapshotDate] = useState('2025-11');
+  const [snapshotDate, setSnapshotDate] = useState(() => {
+    const saved = localStorage.getItem(getStorageKeySync('snapshotDate'));
+    return saved || '2025-11';
+  });
+  
+  // Reset state when page changes
+  useEffect(() => {
+    const storageKey = (key) => `metricTreeState-${currentPage}-${key}`;
+    
+    // Load state for new page
+    const savedExpanded = localStorage.getItem(storageKey('expandedMetrics'));
+    if (savedExpanded) {
+      try {
+        const parsed = JSON.parse(savedExpanded);
+        setExpandedMetrics(new Set(parsed));
+      } catch (e) {
+        setExpandedMetrics(new Set(metrics.length > 0 ? ['sales-pipeline'] : []));
+      }
+    } else {
+      setExpandedMetrics(new Set(metrics.length > 0 ? ['sales-pipeline'] : []));
+    }
+    
+    const savedViewNodes = localStorage.getItem(storageKey('viewNodes'));
+    if (savedViewNodes) {
+      try {
+        const parsed = JSON.parse(savedViewNodes);
+        setViewNodes(new Map(parsed));
+      } catch (e) {
+        setViewNodes(new Map());
+      }
+    } else {
+      setViewNodes(new Map());
+    }
+    
+    const savedMoved = localStorage.getItem(storageKey('manuallyMovedViewNodes'));
+    if (savedMoved) {
+      try {
+        const parsed = JSON.parse(savedMoved);
+        setManuallyMovedViewNodes(new Set(parsed));
+      } catch (e) {
+        setManuallyMovedViewNodes(new Set());
+      }
+    } else {
+      setManuallyMovedViewNodes(new Set());
+    }
+    
+    const savedDate = localStorage.getItem(storageKey('snapshotDate'));
+    setSnapshotDate(savedDate || '2025-11');
+    
+    hasRestoredPositions.current = false;
+  }, [currentPage]);
   
   // Generate month/year options going back 24 months
   const snapshotDateOptions = useMemo(() => {
@@ -71,6 +162,7 @@ const MetricTree = () => {
 
   // Filter visible metrics: level 1, level 2, and level 3 if parent is expanded
   const visibleMetrics = useMemo(() => {
+    if (!metrics || metrics.length === 0) return [];
     return metrics.filter((metric) => {
       if (metric.level === 1 || metric.level === 2) {
         return true;
@@ -81,7 +173,7 @@ const MetricTree = () => {
       }
       return false;
     });
-  }, [expandedMetrics]);
+  }, [metrics, expandedMetrics]);
 
   // Calculate auto-layout positions for nodes
   const calculateNodePositions = useCallback((visibleMetrics, expandedMetrics) => {
@@ -402,6 +494,58 @@ const MetricTree = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState(allNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(allEdges);
   const reactFlowInstance = React.useRef(null);
+  const hasRestoredPositions = React.useRef(false);
+
+  // Auto-save state to localStorage
+  const autoSaveState = useCallback(() => {
+    if (!reactFlowInstance.current) return;
+
+    // Use a function to get current state to avoid stale closures
+    setNodes((currentNodes) => {
+      setEdges((currentEdges) => {
+        const viewport = reactFlowInstance.current?.getViewport() || { x: 0, y: 0, zoom: 1 };
+        
+        const state = {
+          nodes: currentNodes.map(node => ({
+            id: node.id,
+            type: node.type,
+            position: node.position,
+            data: {
+              metricId: node.data.metric?.id,
+              isExpanded: node.data.isExpanded,
+            },
+            selected: node.selected,
+          })),
+          edges: currentEdges.map(edge => ({
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            sourceHandle: edge.sourceHandle,
+            targetHandle: edge.targetHandle,
+            type: edge.type,
+            style: edge.style,
+            animated: edge.animated,
+            markerEnd: edge.markerEnd,
+          })),
+          viewport: viewport,
+          expandedMetrics: Array.from(expandedMetrics),
+          viewNodes: Array.from(viewNodes.entries()).map(([key, value]) => [key, value]),
+          manuallyMovedViewNodes: Array.from(manuallyMovedViewNodes),
+          snapshotDate: snapshotDate,
+        };
+        
+        localStorage.setItem(getStorageKey('fullState'), JSON.stringify(state));
+        
+        // Also save individual state pieces for easier loading
+        localStorage.setItem(getStorageKey('expandedMetrics'), JSON.stringify(Array.from(expandedMetrics)));
+        localStorage.setItem(getStorageKey('viewNodes'), JSON.stringify(Array.from(viewNodes.entries())));
+        localStorage.setItem(getStorageKey('manuallyMovedViewNodes'), JSON.stringify(Array.from(manuallyMovedViewNodes)));
+        localStorage.setItem(getStorageKey('snapshotDate'), snapshotDate);
+        return currentEdges;
+      });
+      return currentNodes;
+    });
+  }, [expandedMetrics, viewNodes, manuallyMovedViewNodes, snapshotDate, setNodes, setEdges]);
 
   // Handle node drag - mark view nodes as manually moved during drag
   const handleNodeDrag = useCallback((event, node) => {
@@ -413,11 +557,22 @@ const MetricTree = () => {
     }
   }, []);
 
+  // Handle node drag stop - auto-save state
+  const handleNodeDragStop = useCallback(() => {
+    // Auto-save after a short delay to ensure state is updated
+    setTimeout(() => {
+      autoSaveState();
+    }, 100);
+  }, [autoSaveState]);
+
   // Update view node positions relative to their metric cards only if they haven't been manually moved
   useEffect(() => {
+    if (viewNodes.size === 0) return;
+    
     setNodes((currentNodes) => {
       const updatedNodes = [...currentNodes];
       let hasChanges = false;
+      const nodesToMarkAsMoved = [];
 
       viewNodes.forEach((viewInfo, metricId) => {
         const metricNode = updatedNodes.find(n => n.id === metricId);
@@ -433,9 +588,9 @@ const MetricTree = () => {
               Math.pow(trendNode.position.x - expectedX, 2) + 
               Math.pow(trendNode.position.y - expectedY, 2)
             );
-            // If it's far from expected position, mark as manually moved
+            // If it's far from expected position, mark as manually moved (but do it outside this callback)
             if (distance > 50) {
-              setManuallyMovedViewNodes((prev) => new Set(prev).add(trendNode.id));
+              nodesToMarkAsMoved.push(trendNode.id);
             } else if (trendNode.position.x !== expectedX || trendNode.position.y !== expectedY) {
               trendNode.position = { x: expectedX, y: expectedY };
               hasChanges = true;
@@ -454,9 +609,9 @@ const MetricTree = () => {
               Math.pow(serviceLineNode.position.x - expectedX, 2) + 
               Math.pow(serviceLineNode.position.y - expectedY, 2)
             );
-            // If it's far from expected position, mark as manually moved
+            // If it's far from expected position, mark as manually moved (but do it outside this callback)
             if (distance > 50) {
-              setManuallyMovedViewNodes((prev) => new Set(prev).add(serviceLineNode.id));
+              nodesToMarkAsMoved.push(serviceLineNode.id);
             } else if (serviceLineNode.position.x !== expectedX || serviceLineNode.position.y !== expectedY) {
               serviceLineNode.position = { x: expectedX, y: expectedY };
               hasChanges = true;
@@ -465,12 +620,40 @@ const MetricTree = () => {
         }
       });
 
+      // Mark nodes as manually moved outside of setNodes to avoid infinite loops
+      if (nodesToMarkAsMoved.length > 0) {
+        setTimeout(() => {
+          setManuallyMovedViewNodes((prev) => {
+            const next = new Set(prev);
+            nodesToMarkAsMoved.forEach(id => next.add(id));
+            return next;
+          });
+        }, 0);
+      }
+
       return hasChanges ? updatedNodes : currentNodes;
     });
-  }, [nodes, viewNodes, manuallyMovedViewNodes, setNodes]);
+  }, [viewNodes, manuallyMovedViewNodes, setNodes]);
 
-  // Update nodes and edges when they change, preserving existing positions
+  // Track node structure changes using refs to avoid infinite loops
+  const lastNodeStructureRef = useRef('');
+  
+  // Update nodes and edges when structure changes, preserving existing positions
   useEffect(() => {
+    // Calculate structure key based on visible metrics and view nodes
+    const metricIds = visibleMetrics.map(m => m.id).sort().join(',');
+    const viewNodeIds = Array.from(viewNodes.values())
+      .flatMap(v => [v.trendViewId, v.serviceLineViewId].filter(Boolean))
+      .sort()
+      .join(',');
+    const nodeStructureKey = `${metricIds}|${viewNodeIds}`;
+    
+    // Only update if the node structure (IDs/types) has actually changed
+    if (lastNodeStructureRef.current === nodeStructureKey) {
+      return;
+    }
+    lastNodeStructureRef.current = nodeStructureKey;
+    
     setNodes((currentNodes) => {
       // Create a map of existing node positions
       const positionMap = new Map();
@@ -515,20 +698,215 @@ const MetricTree = () => {
         return newNode;
       });
     });
-  }, [allNodes, setNodes, viewNodes, manuallyMovedViewNodes]);
+  }, [visibleMetrics, viewNodes, setNodes, manuallyMovedViewNodes]);
 
+  // Track edge structure changes using refs to avoid infinite loops
+  const lastEdgeStructureRef = useRef('');
+  
   useEffect(() => {
+    // Calculate structure key based on visible metrics and view nodes (which determine edges)
+    const metricEdgeIds = visibleMetrics
+      .filter(m => m.parentId)
+      .map(m => `e${m.id}-${m.parentId}`)
+      .sort()
+      .join(',');
+    const viewEdgeIds = Array.from(viewNodes.values())
+      .flatMap(v => [
+        v.trendViewId ? `e${v.trendViewId?.split('-').slice(0, -1).join('-')}-${v.trendViewId}` : null,
+        v.serviceLineViewId ? `e${v.serviceLineViewId?.split('-').slice(0, -1).join('-')}-${v.serviceLineViewId}` : null
+      ].filter(Boolean))
+      .sort()
+      .join(',');
+    const edgeStructureKey = `${metricEdgeIds}|${viewEdgeIds}`;
+    
+    // Only update if the edge structure has actually changed
+    if (lastEdgeStructureRef.current === edgeStructureKey) {
+      return;
+    }
+    lastEdgeStructureRef.current = edgeStructureKey;
+    
     setEdges(allEdges);
-  }, [allEdges, setEdges]);
+  }, [visibleMetrics, viewNodes, setEdges]);
 
   const onConnect = useCallback(
     (params) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
 
+  // Auto-save when expanded metrics change
+  useEffect(() => {
+    if (reactFlowInstance.current) {
+      localStorage.setItem(getStorageKey('expandedMetrics'), JSON.stringify(Array.from(expandedMetrics)));
+      const timeoutId = setTimeout(() => {
+        autoSaveState();
+      }, 200);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [expandedMetrics, autoSaveState, getStorageKey]);
+  
+  // Auto-save when view nodes change
+  useEffect(() => {
+    if (reactFlowInstance.current) {
+      localStorage.setItem(getStorageKey('viewNodes'), JSON.stringify(Array.from(viewNodes.entries())));
+      const timeoutId = setTimeout(() => {
+        autoSaveState();
+      }, 200);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [viewNodes, autoSaveState, getStorageKey]);
+  
+  // Auto-save when snapshot date changes
+  useEffect(() => {
+    if (reactFlowInstance.current) {
+      localStorage.setItem(getStorageKey('snapshotDate'), snapshotDate);
+      const timeoutId = setTimeout(() => {
+        autoSaveState();
+      }, 200);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [snapshotDate, autoSaveState, getStorageKey]);
+
+  // Reset view - clear saved state and reset to defaults
+  const resetView = useCallback(() => {
+    // Clear localStorage for current page
+    localStorage.removeItem(getStorageKey('fullState'));
+    localStorage.removeItem(getStorageKey('expandedMetrics'));
+    localStorage.removeItem(getStorageKey('viewNodes'));
+    localStorage.removeItem(getStorageKey('manuallyMovedViewNodes'));
+    localStorage.removeItem(getStorageKey('snapshotDate'));
+    
+    // Reset state to defaults - this will trigger recalculation of initialNodes
+    setExpandedMetrics(new Set(metrics.length > 0 ? ['sales-pipeline'] : []));
+    setViewNodes(new Map());
+    setManuallyMovedViewNodes(new Set());
+    setSnapshotDate('2025-11');
+    hasRestoredPositions.current = false;
+    
+    // Reset viewport - use a lower zoom to show more of the canvas
+    if (reactFlowInstance.current) {
+      reactFlowInstance.current.setViewport({ x: 0, y: 0, zoom: 0.5 });
+    }
+    
+    // Force nodes to recalculate positions from initial metric positions
+    // Wait for state updates to propagate, then recalculate
+    setTimeout(() => {
+      setNodes((currentNodes) => {
+        // Filter to only metric nodes for recalculation
+        const metricNodes = currentNodes.filter(n => n.type === 'metric');
+        if (metricNodes.length === 0) return currentNodes;
+        
+        // Get current visible metrics (after state update)
+        const currentVisibleMetrics = metrics.filter((metric) => {
+          if (metric.level === 1 || metric.level === 2) {
+            return true;
+          }
+          if (metric.level === 3 && metric.parentId) {
+            return metrics.length > 0 && ['sales-pipeline'].includes(metric.parentId);
+          }
+          return false;
+        });
+        
+        // Recalculate positions using calculateNodePositions
+        const defaultExpanded = new Set(metrics.length > 0 ? ['sales-pipeline'] : []);
+        const nodePositions = calculateNodePositions(currentVisibleMetrics, defaultExpanded);
+        
+        return currentNodes.map(node => {
+          // Only reset metric nodes, not view nodes
+          if (node.type === 'metric') {
+            const metric = metrics.find(m => m.id === node.id);
+            if (metric) {
+              // Use calculated position or fall back to metric's initial position
+              const calculatedPos = nodePositions.get(node.id);
+              const initialPos = calculatedPos || metric.position;
+              return { ...node, position: initialPos };
+            }
+          }
+          return node;
+        });
+      });
+    }, 200);
+  }, [getStorageKey, metrics, calculateNodePositions, setNodes]);
+
+  // Restore viewport on initial load
+  useEffect(() => {
+    const storageKey = `metricTreeState-${currentPage}-fullState`;
+    const saved = localStorage.getItem(storageKey);
+    if (!saved || !reactFlowInstance.current) return;
+    
+    try {
+      const state = JSON.parse(saved);
+      
+      // Restore viewport after React Flow is initialized
+      if (state.viewport) {
+        setTimeout(() => {
+          reactFlowInstance.current?.setViewport(state.viewport);
+        }, 200);
+      }
+    } catch (error) {
+      console.error('Error restoring viewport on load:', error);
+    }
+  }, [currentPage]); // Run when page changes
+
+  // Restore node positions from saved state after nodes are created
+  useEffect(() => {
+    const saved = localStorage.getItem(getStorageKey('fullState'));
+    if (!saved || nodes.length === 0 || hasRestoredPositions.current) return;
+    
+    try {
+      const state = JSON.parse(saved);
+      if (!state.nodes || state.nodes.length === 0) return;
+      
+      // Create a map of saved positions
+      const savedPositions = new Map();
+      state.nodes.forEach(node => {
+        savedPositions.set(node.id, node.position);
+      });
+      
+      // Check if any positions need to be restored
+      const needsRestore = nodes.some(node => {
+        const savedPosition = savedPositions.get(node.id);
+        return savedPosition && (
+          Math.abs(node.position.x - savedPosition.x) > 1 || 
+          Math.abs(node.position.y - savedPosition.y) > 1
+        );
+      });
+      
+      if (needsRestore) {
+        // Update node positions if they exist in saved state
+        setNodes((currentNodes) => {
+          return currentNodes.map(node => {
+            const savedPosition = savedPositions.get(node.id);
+            if (savedPosition) {
+              return { ...node, position: savedPosition };
+            }
+            return node;
+          });
+        });
+        hasRestoredPositions.current = true;
+      }
+    } catch (error) {
+      console.error('Error restoring node positions:', error);
+    }
+  }, [nodes.length, setNodes, currentPage]); // Run when node count or page changes
+
+  // Show empty state if no metrics
+  if (!metrics || metrics.length === 0) {
+    return (
+      <div className="metric-tree-container">
+        <div className="empty-state">
+          <h2>No metrics available</h2>
+          <p>Metrics for this page will be displayed here.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="metric-tree-container">
       <div className="snapshot-date-control">
+        <button className="reset-view-btn" onClick={resetView} title="Reset view to defaults">
+          🔄 Reset View
+        </button>
         <label htmlFor="snapshot-date-select" className="snapshot-date-label">
           Snapshot Date:
         </label>
@@ -552,6 +930,7 @@ const MetricTree = () => {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeDrag={handleNodeDrag}
+        onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypes}
         onInit={(instance) => {
           reactFlowInstance.current = instance;
