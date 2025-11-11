@@ -1,6 +1,7 @@
 import { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import React from 'react';
-import ReactFlow, {
+import {
+  ReactFlow,
   Background,
   Controls,
   MiniMap,
@@ -9,11 +10,12 @@ import ReactFlow, {
   addEdge,
   NodeToolbar,
   Position,
-} from 'reactflow';
-import 'reactflow/dist/base.css';
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import MetricNode from './MetricNode';
 import TrendViewNode from './TrendViewNode';
 import ServiceLineViewNode from './ServiceLineViewNode';
+import MetricEdge from './MetricEdge';
 import { getMetricsForPage } from '../data/pageMetrics';
 import { getChildren } from '../data/metrics';
 import { usePage } from '../context/PageContext';
@@ -23,6 +25,10 @@ const nodeTypes = {
   metric: MetricNode,
   trendView: TrendViewNode,
   serviceLineView: ServiceLineViewNode,
+};
+
+const edgeTypes = {
+  metricEdge: MetricEdge,
 };
 
 const MetricTree = () => {
@@ -65,6 +71,19 @@ const MetricTree = () => {
   // Track which view nodes have been manually moved by the user
   const [manuallyMovedViewNodes, setManuallyMovedViewNodes] = useState(() => {
     const saved = localStorage.getItem(getStorageKeySync('manuallyMovedViewNodes'));
+    if (saved) {
+      try {
+        return new Set(JSON.parse(saved));
+      } catch (e) {
+        return new Set();
+      }
+    }
+    return new Set();
+  });
+  
+  // Track which individual child nodes are hidden
+  const [hiddenNodes, setHiddenNodes] = useState(() => {
+    const saved = localStorage.getItem(getStorageKeySync('hiddenNodes'));
     if (saved) {
       try {
         return new Set(JSON.parse(saved));
@@ -122,6 +141,18 @@ const MetricTree = () => {
       setManuallyMovedViewNodes(new Set());
     }
     
+    const savedHidden = localStorage.getItem(storageKey('hiddenNodes'));
+    if (savedHidden) {
+      try {
+        const parsed = JSON.parse(savedHidden);
+        setHiddenNodes(new Set(parsed));
+      } catch (e) {
+        setHiddenNodes(new Set());
+      }
+    } else {
+      setHiddenNodes(new Set());
+    }
+    
     const savedDate = localStorage.getItem(storageKey('snapshotDate'));
     setSnapshotDate(savedDate || '2025-11');
     
@@ -151,21 +182,70 @@ const MetricTree = () => {
 
   // Toggle expansion for a metric
   const toggleExpansion = useCallback((metricId) => {
-    setExpandedMetrics((prev) => {
-      const next = new Set(prev);
-      if (next.has(metricId)) {
-        next.delete(metricId);
-      } else {
-        next.add(metricId);
+    const allChildren = getChildren(metricId);
+    
+    setHiddenNodes((prevHidden) => {
+      const hiddenChildren = allChildren.filter(child => prevHidden.has(child.id));
+      const hasHiddenChildren = hiddenChildren.length > 0;
+      
+      // If there are hidden children, unhide them all
+      if (hasHiddenChildren) {
+        const nextHidden = new Set(prevHidden);
+        allChildren.forEach(child => {
+          nextHidden.delete(child.id);
+        });
+        return nextHidden;
       }
+      return prevHidden;
+    });
+    
+    setExpandedMetrics((prev) => {
+      const hiddenChildren = allChildren.filter(child => hiddenNodes.has(child.id));
+      const hasHiddenChildren = hiddenChildren.length > 0;
+      
+      if (hasHiddenChildren || !prev.has(metricId)) {
+        // Expand if there are hidden children or parent is collapsed
+        const next = new Set(prev);
+        next.add(metricId);
+        return next;
+      } else {
+        // All children visible and parent expanded, so collapse
+        const next = new Set(prev);
+        next.delete(metricId);
+        return next;
+      }
+    });
+  }, [hiddenNodes]);
+
+  // Remove a child node and all its descendants by adding them to the hidden set
+  const removeChildNode = useCallback((childId, parentId) => {
+    // Recursively collect the child and all its descendants
+    const nodesToHide = [childId];
+    const collectDescendants = (nodeId) => {
+      const children = getChildren(nodeId);
+      children.forEach(child => {
+        nodesToHide.push(child.id);
+        collectDescendants(child.id); // Recursively collect grandchildren
+      });
+    };
+    collectDescendants(childId);
+    
+    // Add the child and all descendants to the hidden nodes set
+    setHiddenNodes((prev) => {
+      const next = new Set(prev);
+      nodesToHide.forEach(id => next.add(id));
       return next;
     });
   }, []);
 
-  // Filter visible metrics: level 1, level 2, and level 3 if parent is expanded
+  // Filter visible metrics: level 1, level 2, and level 3 if parent is expanded and not hidden
   const visibleMetrics = useMemo(() => {
     if (!metrics || metrics.length === 0) return [];
     const visible = metrics.filter((metric) => {
+      // Check if node is hidden
+      if (hiddenNodes.has(metric.id)) {
+        return false;
+      }
       if (metric.level === 1 || metric.level === 2) {
         return true;
       }
@@ -176,7 +256,7 @@ const MetricTree = () => {
       return false;
     });
     return visible;
-  }, [metrics, expandedMetrics]);
+  }, [metrics, expandedMetrics, hiddenNodes]);
 
   // Calculate auto-layout positions for nodes
   const calculateNodePositions = useCallback((visibleMetrics, expandedMetrics) => {
@@ -330,7 +410,16 @@ const MetricTree = () => {
     const nodes = visibleMetrics.map((metric) => {
       const position = nodePositions.get(metric.id) || metric.position;
       const viewNodeInfo = viewNodes.get(metric.id) || {};
-      const hasToggle = metric.level === 2;
+      
+      // Check if all children are visible
+      const allChildren = getChildren(metric.id);
+      const visibleChildren = allChildren.filter(child => 
+        visibleMetrics.some(m => m.id === child.id)
+      );
+      const allChildrenVisible = allChildren.length > 0 && allChildren.length === visibleChildren.length;
+      
+      // Level 2 always has toggle, Level 1 has toggle if it has children that are not all visible
+      const hasToggle = metric.level === 2 || (metric.level === 1 && allChildren.length > 0 && !allChildrenVisible);
       
       return {
         id: metric.id,
@@ -339,6 +428,7 @@ const MetricTree = () => {
         data: { 
           metric,
           isExpanded: expandedMetrics.has(metric.id),
+          allChildrenVisible,
           onToggleExpand: hasToggle ? () => toggleExpansion(metric.id) : null,
           onCreateTrendView: () => {
             // Check current state, not captured closure
@@ -380,7 +470,7 @@ const MetricTree = () => {
             id: `e${metric.id}-${metric.parentId}`,
             source: metric.id, // Child is source
             target: metric.parentId, // Parent is target
-            type: 'smoothstep',
+            type: 'metricEdge',
             animated: true,
             style: { 
               stroke: 'rgba(255, 255, 255, 0.8)', 
@@ -391,12 +481,15 @@ const MetricTree = () => {
               type: 'arrowclosed',
               color: 'rgba(255, 255, 255, 0.8)',
             },
+            data: {
+              onRemove: removeChildNode,
+            },
           });
         }
       }
     });
     return edges;
-  }, [visibleMetrics]);
+  }, [visibleMetrics, removeChildNode]);
 
   // Include view nodes in the nodes array
   const allNodes = useMemo(() => {
@@ -555,10 +648,7 @@ const MetricTree = () => {
             strokeWidth: 2,
             strokeDasharray: '5,5',
           },
-          markerEnd: {
-            type: 'arrowclosed',
-            color: '#FFA823',
-          },
+          // No markerEnd - just a dashed line
         });
       }
 
@@ -575,10 +665,7 @@ const MetricTree = () => {
             strokeWidth: 2,
             strokeDasharray: '5,5',
           },
-          markerEnd: {
-            type: 'arrowclosed',
-            color: '#FFA823',
-          },
+          // No markerEnd - just a dashed line
         });
       }
     });
@@ -606,6 +693,7 @@ const MetricTree = () => {
       expandedMetrics: Array.from(expandedMetrics),
       viewNodes: Array.from(viewNodes.entries()).map(([key, value]) => [key, value]),
       manuallyMovedViewNodes: Array.from(manuallyMovedViewNodes),
+      hiddenNodes: Array.from(hiddenNodes),
       snapshotDate: snapshotDate,
     };
     
@@ -615,8 +703,9 @@ const MetricTree = () => {
     localStorage.setItem(getStorageKey('expandedMetrics'), JSON.stringify(Array.from(expandedMetrics)));
     localStorage.setItem(getStorageKey('viewNodes'), JSON.stringify(Array.from(viewNodes.entries())));
     localStorage.setItem(getStorageKey('manuallyMovedViewNodes'), JSON.stringify(Array.from(manuallyMovedViewNodes)));
+    localStorage.setItem(getStorageKey('hiddenNodes'), JSON.stringify(Array.from(hiddenNodes)));
     localStorage.setItem(getStorageKey('snapshotDate'), snapshotDate);
-  }, [expandedMetrics, viewNodes, manuallyMovedViewNodes, snapshotDate, getStorageKey]);
+  }, [expandedMetrics, viewNodes, manuallyMovedViewNodes, hiddenNodes, snapshotDate, getStorageKey]);
 
   // Handle node drag - mark view nodes as manually moved during drag
   const handleNodeDrag = useCallback((event, node) => {
@@ -775,6 +864,9 @@ const MetricTree = () => {
     }
     lastNodeStructureRef.current = nodeStructureKey;
     
+    // Preserve viewport before node update
+    const currentViewport = reactFlowInstance.current?.getViewport();
+    
     // Force update nodes when allNodes changes
     // Use the latest allNodes directly to ensure we have fresh data
     setNodes((currentNodes) => {
@@ -913,6 +1005,14 @@ const MetricTree = () => {
       // Return only the updated nodes (this removes any nodes that are no longer in allNodes)
       return updatedNodes;
     });
+    
+    // Restore viewport after node update to prevent zoom/pan shift
+    if (currentViewport) {
+      // Use setTimeout to ensure the viewport is restored after React Flow has processed the node changes
+      setTimeout(() => {
+        reactFlowInstance.current?.setViewport(currentViewport);
+      }, 0);
+    }
   }, [visibleMetrics, viewNodes, setNodes, manuallyMovedViewNodes, allNodes, expandedMetrics]);
 
   // Track edge structure changes using refs to avoid infinite loops
@@ -970,6 +1070,17 @@ const MetricTree = () => {
     }
   }, [viewNodes, autoSaveState, getStorageKey]);
   
+  // Auto-save when hidden nodes change
+  useEffect(() => {
+    if (reactFlowInstance.current) {
+      localStorage.setItem(getStorageKey('hiddenNodes'), JSON.stringify(Array.from(hiddenNodes)));
+      const timeoutId = setTimeout(() => {
+        autoSaveState();
+      }, 200);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [hiddenNodes, autoSaveState, getStorageKey]);
+  
   // Auto-save when snapshot date changes
   useEffect(() => {
     if (reactFlowInstance.current) {
@@ -988,12 +1099,14 @@ const MetricTree = () => {
     localStorage.removeItem(getStorageKey('expandedMetrics'));
     localStorage.removeItem(getStorageKey('viewNodes'));
     localStorage.removeItem(getStorageKey('manuallyMovedViewNodes'));
+    localStorage.removeItem(getStorageKey('hiddenNodes'));
     localStorage.removeItem(getStorageKey('snapshotDate'));
     
     // Reset state to defaults - this will trigger recalculation of initialNodes
     setExpandedMetrics(new Set(metrics.length > 0 ? ['sales-pipeline'] : []));
     setViewNodes(new Map());
     setManuallyMovedViewNodes(new Set());
+    setHiddenNodes(new Set());
     setSnapshotDate('2025-11');
     hasRestoredPositions.current = false;
     
@@ -1105,6 +1218,7 @@ const MetricTree = () => {
         onNodeDrag={handleNodeDrag}
         onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onInit={(instance) => {
           reactFlowInstance.current = instance;
         }}

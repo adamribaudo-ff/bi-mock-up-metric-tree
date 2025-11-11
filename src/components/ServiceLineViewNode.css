@@ -87,3 +87,37 @@
   box-shadow: 0 0 0 3px rgba(36, 71, 160, 0.1);
 }
 
+.view-node-toolbar,
+.react-flow__node-toolbar.view-node-toolbar {
+  display: flex !important;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  z-index: 1000;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.view-node-close-btn {
+  padding: 8px;
+  border: 1px solid rgba(209, 213, 219, 0.8);
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.view-node-close-btn:hover {
+  background: #f9fafb;
+  border-color: #2447A0;
+  color: #2447A0;
+}
+

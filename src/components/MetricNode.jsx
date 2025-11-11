@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Handle, Position, NodeToolbar } from 'reactflow';
+import React from 'react';
+import { Handle, Position, NodeToolbar } from '@xyflow/react';
 import MetricCard from './MetricCard';
 import './MetricNode.css';
 
@@ -66,6 +67,28 @@ const MetricNode = ({ data, selected }) => {
         onShowAIPrompt={() => setShowAIPrompt(true)}
         onCloseAIPrompt={() => setShowAIPrompt(false)}
       />
+      {/* Bottom toolbar for expand/collapse */}
+      {data.onToggleExpand && !data.allChildrenVisible && (
+        <NodeToolbar 
+          isVisible={true} 
+          position={Position.Bottom} 
+          align="center"
+          className="metric-node-toolbar"
+        >
+          <button
+            className="toolbar-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (data.onToggleExpand) data.onToggleExpand();
+            }}
+            title="Expand children"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+          </button>
+        </NodeToolbar>
+      )}
       {/* Target handle for parents (level 1 and 2) - at bottom, hidden */}
       {level <= 2 && (
         <Handle

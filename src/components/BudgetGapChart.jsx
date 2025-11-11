@@ -88,16 +88,47 @@ const BudgetGapChart = ({ data, width = 280, height = 200 }) => {
       .attr('class', 'legend')
       .attr('transform', `translate(0, -40)`);
 
+    // Calculate positions with left justification and wrapping
+    const legendItemSpacing = 16; // Space between icon and text
+    const legendItemGap = 20; // Gap between legend items
+    const iconWidth = 12;
+    const fontSize = 9;
+    const lineHeight = 16;
+    
+    // Create a temporary text element to measure text width
+    const tempText = g.append('text')
+      .style('font-size', `${fontSize}px`)
+      .style('visibility', 'hidden');
+    
+    let currentX = 0;
+    let currentY = 0;
+    const positions = legendData.map((d) => {
+      const textWidth = tempText.text(d.label).node().getBBox().width;
+      const itemWidth = iconWidth + legendItemSpacing + textWidth;
+      
+      // Check if this item would exceed the chart width
+      if (currentX > 0 && currentX + itemWidth > chartWidth) {
+        // Wrap to next line
+        currentX = 0;
+        currentY += lineHeight;
+      }
+      
+      const x = currentX;
+      currentX += itemWidth + legendItemGap;
+      
+      return { x, y: currentY };
+    });
+    
+    // Remove temporary text element
+    tempText.remove();
+
     const legendItems = legend.selectAll('.legend-item')
       .data(legendData)
       .enter()
       .append('g')
       .attr('class', 'legend-item')
       .attr('transform', (d, i) => {
-        // Position legend items in two rows if needed
-        const row = i < 2 ? 0 : 1;
-        const col = i % 2;
-        return `translate(${col * 140}, ${row * 16})`;
+        return `translate(${positions[i].x}, ${positions[i].y})`;
       });
 
     legendItems.append('rect')

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { Handle, Position, NodeResizer } from 'reactflow';
+import React from 'react';
+import { Handle, Position, NodeResizer, NodeToolbar } from '@xyflow/react';
 import ServiceLineChart from './ServiceLineChart';
 import DepartmentChart from './DepartmentChart';
 import './ServiceLineViewNode.css';
@@ -87,6 +88,22 @@ const ServiceLineViewNode = ({ data, selected, style }) => {
 
   return (
     <div className="service-line-view-node">
+      <NodeToolbar isVisible={selected} position={Position.Top} align="end" className="view-node-toolbar">
+        <button
+          className="view-node-close-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (data.onClose) {
+              data.onClose();
+            }
+          }}
+          title="Close"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </NodeToolbar>
       <NodeResizer
         minWidth={350}
         minHeight={250}

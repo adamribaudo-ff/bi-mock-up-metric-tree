@@ -91,10 +91,9 @@
 }
 
 .react-flow__controls {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  background: rgba(10, 14, 39, 0.8);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(174, 83, 186, 0.3);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  background: white;
+  border: 1px solid rgba(209, 213, 219, 0.8);
   border-radius: 8px;
   bottom: 20px !important;
   right: 240px !important;
@@ -106,14 +105,15 @@
 }
 
 .react-flow__controls-button {
-  background: rgba(42, 138, 246, 0.1);
-  border: 1px solid rgba(42, 138, 246, 0.3);
-  color: #2a8af6;
+  background: white;
+  border: 1px solid rgba(209, 213, 219, 0.8);
+  color: #374151;
 }
 
 .react-flow__controls-button:hover {
-  background: rgba(42, 138, 246, 0.2);
-  border-color: rgba(42, 138, 246, 0.5);
+  background: #f9fafb;
+  border-color: #2447A0;
+  color: #2447A0;
 }
 
 /* Hide the lock button in React Flow controls */

@@ -98,36 +98,6 @@ const MetricCard = ({ metric, isExpanded, onToggleExpand, onCreateTrendView, onC
           </div>
         </div>
       </div>
-
-
-      {onToggleExpand && (
-        <div className="expand-toggle-section">
-          <button
-            className="expand-toggle-button-large"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleExpand();
-            }}
-            title={isExpanded ? "Collapse children" : "Expand children"}
-          >
-            {isExpanded ? (
-              <>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M5 12h14"/>
-                </svg>
-                <span>Collapse</span>
-              </>
-            ) : (
-              <>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 5v14M5 12h14"/>
-                </svg>
-                <span>Expand</span>
-              </>
-            )}
-          </button>
-        </div>
-      )}
     </div>
   );
 };

@@ -1,0 +1,33 @@
+/* EdgeToolbar automatically handles hover behavior and positioning */
+.edge-toolbar-btn {
+  padding: 6px;
+  border: 1px solid rgba(209, 213, 219, 0.8);
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 10;
+}
+
+.edge-toolbar-btn:hover {
+  background: #f9fafb;
+  border-color: #2447A0;
+  color: #2447A0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+  transform: scale(1.05);
+}
+
+/* Ensure the toolbar wrapper is visible */
+.react-flow__edge-toolbar {
+  z-index: 10 !important;
+  pointer-events: all;
+}
+
