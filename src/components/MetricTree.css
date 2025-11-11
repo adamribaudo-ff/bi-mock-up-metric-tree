@@ -1,0 +1,47 @@
+.metric-tree-container {
+  width: 100%;
+  height: 100vh;
+  background: #f3f4f6;
+}
+
+/* Style the grid background */
+.react-flow__background {
+  opacity: 0.6;
+}
+
+.react-flow__node {
+  cursor: grab;
+}
+
+.react-flow__node:active {
+  cursor: grabbing;
+}
+
+.react-flow__edge-path {
+  stroke-width: 2;
+}
+
+/* Animated edge - moving dots from child to parent (upward direction) */
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 8 4;
+  animation: dashdraw 2.5s linear infinite;
+  stroke-linecap: round;
+}
+
+@keyframes dashdraw {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -12;
+  }
+}
+
+.react-flow__controls {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.react-flow__minimap {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
