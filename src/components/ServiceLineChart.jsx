@@ -18,10 +18,10 @@ const ServiceLineChart = ({ data, width = 200, height = 80 }) => {
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Scales
+    // Scales - use 'label' property for all breakdown types
     const xScale = d3
       .scaleBand()
-      .domain(data.map(d => d.serviceLine))
+      .domain(data.map(d => d.label))
       .range([0, chartWidth])
       .padding(0.2);
 
@@ -33,7 +33,7 @@ const ServiceLineChart = ({ data, width = 200, height = 80 }) => {
 
     // Color scale
     const colorScale = d3.scaleOrdinal()
-      .domain(data.map(d => d.serviceLine))
+      .domain(data.map(d => d.label))
       .range(['#2447A0', '#122350', '#CCD7F3']);
 
     // Add bars
@@ -42,11 +42,11 @@ const ServiceLineChart = ({ data, width = 200, height = 80 }) => {
       .enter()
       .append('rect')
       .attr('class', 'bar')
-      .attr('x', d => xScale(d.serviceLine))
+      .attr('x', d => xScale(d.label))
       .attr('width', xScale.bandwidth())
       .attr('y', d => yScale(d.value))
       .attr('height', d => chartHeight - yScale(d.value))
-      .attr('fill', d => colorScale(d.serviceLine));
+      .attr('fill', d => colorScale(d.label));
 
     // Add value labels on bars
     g.selectAll('.bar-label')
@@ -54,7 +54,7 @@ const ServiceLineChart = ({ data, width = 200, height = 80 }) => {
       .enter()
       .append('text')
       .attr('class', 'bar-label')
-      .attr('x', d => xScale(d.serviceLine) + xScale.bandwidth() / 2)
+      .attr('x', d => xScale(d.label) + xScale.bandwidth() / 2)
       .attr('y', d => yScale(d.value) - 5)
       .attr('text-anchor', 'middle')
       .style('font-size', '10px')

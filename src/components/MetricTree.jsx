@@ -28,6 +28,33 @@ const MetricTree = () => {
   
   // Track which view nodes exist (trend and service line views)
   const [viewNodes, setViewNodes] = useState(new Map()); // Map<metricId, { trendViewId?, serviceLineViewId? }>
+  
+  // Track which view nodes have been manually moved by the user
+  const [manuallyMovedViewNodes, setManuallyMovedViewNodes] = useState(new Set());
+  
+  // Snapshot date state - default to November 2025
+  const [snapshotDate, setSnapshotDate] = useState('2025-11');
+  
+  // Generate month/year options going back 24 months
+  const snapshotDateOptions = useMemo(() => {
+    const options = [];
+    const currentDate = new Date(2025, 10, 1); // November 2025 (month is 0-indexed)
+    
+    for (let i = 0; i < 24; i++) {
+      const date = new Date(currentDate);
+      date.setMonth(date.getMonth() - i);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // Convert back to 1-indexed
+      const monthName = date.toLocaleString('default', { month: 'long' });
+      const value = `${year}-${String(month).padStart(2, '0')}`;
+      options.push({
+        value,
+        label: `${monthName} ${year}`
+      });
+    }
+    
+    return options;
+  }, []);
 
   // Toggle expansion for a metric
   const toggleExpansion = useCallback((metricId) => {
@@ -175,10 +202,22 @@ const MetricTree = () => {
       const existing = next.get(metricId);
       if (!existing) return prev;
       
+      let viewNodeIdToRemove = null;
       if (viewType === 'trend') {
+        viewNodeIdToRemove = existing.trendViewId;
         delete existing.trendViewId;
       } else {
+        viewNodeIdToRemove = existing.serviceLineViewId;
         delete existing.serviceLineViewId;
+      }
+      
+      // Remove from manually moved set if it was tracked
+      if (viewNodeIdToRemove) {
+        setManuallyMovedViewNodes((prevMoved) => {
+          const nextMoved = new Set(prevMoved);
+          nextMoved.delete(viewNodeIdToRemove);
+          return nextMoved;
+        });
       }
       
       if (Object.keys(existing).length === 0) {
@@ -364,7 +403,17 @@ const MetricTree = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState(allEdges);
   const reactFlowInstance = React.useRef(null);
 
-  // Update view node positions relative to their metric cards
+  // Handle node drag - mark view nodes as manually moved during drag
+  const handleNodeDrag = useCallback((event, node) => {
+    if (node.type === 'trendView' || node.type === 'serviceLineView') {
+      setManuallyMovedViewNodes((prev) => {
+        if (prev.has(node.id)) return prev; // Already marked
+        return new Set(prev).add(node.id);
+      });
+    }
+  }, []);
+
+  // Update view node positions relative to their metric cards only if they haven't been manually moved
   useEffect(() => {
     setNodes((currentNodes) => {
       const updatedNodes = [...currentNodes];
@@ -376,11 +425,19 @@ const MetricTree = () => {
 
         if (viewInfo.trendViewId) {
           const trendNode = updatedNodes.find(n => n.id === viewInfo.trendViewId);
-          if (trendNode) {
-            const newX = metricNode.position.x + 350;
-            const newY = metricNode.position.y;
-            if (trendNode.position.x !== newX || trendNode.position.y !== newY) {
-              trendNode.position = { x: newX, y: newY };
+          if (trendNode && !manuallyMovedViewNodes.has(trendNode.id)) {
+            const expectedX = metricNode.position.x + 350;
+            const expectedY = metricNode.position.y;
+            // Check if node is significantly away from expected position (was manually moved)
+            const distance = Math.sqrt(
+              Math.pow(trendNode.position.x - expectedX, 2) + 
+              Math.pow(trendNode.position.y - expectedY, 2)
+            );
+            // If it's far from expected position, mark as manually moved
+            if (distance > 50) {
+              setManuallyMovedViewNodes((prev) => new Set(prev).add(trendNode.id));
+            } else if (trendNode.position.x !== expectedX || trendNode.position.y !== expectedY) {
+              trendNode.position = { x: expectedX, y: expectedY };
               hasChanges = true;
             }
           }
@@ -388,12 +445,20 @@ const MetricTree = () => {
 
         if (viewInfo.serviceLineViewId) {
           const serviceLineNode = updatedNodes.find(n => n.id === viewInfo.serviceLineViewId);
-          if (serviceLineNode) {
+          if (serviceLineNode && !manuallyMovedViewNodes.has(serviceLineNode.id)) {
             const yOffset = viewInfo.trendViewId ? 180 : 0;
-            const newX = metricNode.position.x + 350;
-            const newY = metricNode.position.y + yOffset;
-            if (serviceLineNode.position.x !== newX || serviceLineNode.position.y !== newY) {
-              serviceLineNode.position = { x: newX, y: newY };
+            const expectedX = metricNode.position.x + 350;
+            const expectedY = metricNode.position.y + yOffset;
+            // Check if node is significantly away from expected position (was manually moved)
+            const distance = Math.sqrt(
+              Math.pow(serviceLineNode.position.x - expectedX, 2) + 
+              Math.pow(serviceLineNode.position.y - expectedY, 2)
+            );
+            // If it's far from expected position, mark as manually moved
+            if (distance > 50) {
+              setManuallyMovedViewNodes((prev) => new Set(prev).add(serviceLineNode.id));
+            } else if (serviceLineNode.position.x !== expectedX || serviceLineNode.position.y !== expectedY) {
+              serviceLineNode.position = { x: expectedX, y: expectedY };
               hasChanges = true;
             }
           }
@@ -402,7 +467,7 @@ const MetricTree = () => {
 
       return hasChanges ? updatedNodes : currentNodes;
     });
-  }, [nodes, viewNodes, setNodes]);
+  }, [nodes, viewNodes, manuallyMovedViewNodes, setNodes]);
 
   // Update nodes and edges when they change, preserving existing positions
   useEffect(() => {
@@ -415,30 +480,19 @@ const MetricTree = () => {
 
       // Merge new nodes with existing positions
       return allNodes.map(newNode => {
-        // For view nodes, always position them relative to their metric card
+        // For view nodes, position them relative to their metric card only if not manually moved
         if (newNode.type === 'trendView' || newNode.type === 'serviceLineView') {
           // Find the metric node this view belongs to
           const metricId = newNode.id.split('-').slice(0, -1).join('-');
           const metricNode = currentNodes.find(n => n.id === metricId) || allNodes.find(n => n.id === metricId);
           if (metricNode) {
             const existingViewNode = currentNodes.find(n => n.id === newNode.id);
-            // If view node already exists and was manually moved, preserve its position
-            // Otherwise, position it relative to the metric card
+            // If view node was manually moved, preserve its position
+            if (existingViewNode && manuallyMovedViewNodes.has(newNode.id)) {
+              return { ...newNode, position: existingViewNode.position };
+            }
+            // If view node already exists, preserve its position (will be updated by the other useEffect if needed)
             if (existingViewNode && existingViewNode.position) {
-              const expectedX = metricNode.position.x + 350;
-              const expectedY = newNode.type === 'trendView' 
-                ? metricNode.position.y 
-                : (viewNodes.get(metricId)?.trendViewId ? metricNode.position.y + 180 : metricNode.position.y);
-              // Only update if it's close to the expected position (wasn't manually moved)
-              const distance = Math.sqrt(
-                Math.pow(existingViewNode.position.x - expectedX, 2) + 
-                Math.pow(existingViewNode.position.y - expectedY, 2)
-              );
-              if (distance < 50) {
-                // Position is close to expected, update it
-                return { ...newNode, position: { x: expectedX, y: expectedY } };
-              }
-              // User moved it, preserve position
               return { ...newNode, position: existingViewNode.position };
             }
             // New view node, position relative to metric
@@ -461,7 +515,7 @@ const MetricTree = () => {
         return newNode;
       });
     });
-  }, [allNodes, setNodes, viewNodes]);
+  }, [allNodes, setNodes, viewNodes, manuallyMovedViewNodes]);
 
   useEffect(() => {
     setEdges(allEdges);
@@ -474,12 +528,30 @@ const MetricTree = () => {
 
   return (
     <div className="metric-tree-container">
+      <div className="snapshot-date-control">
+        <label htmlFor="snapshot-date-select" className="snapshot-date-label">
+          Snapshot Date:
+        </label>
+        <select
+          id="snapshot-date-select"
+          className="snapshot-date-select"
+          value={snapshotDate}
+          onChange={(e) => setSnapshotDate(e.target.value)}
+        >
+          {snapshotDateOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeDrag={handleNodeDrag}
         nodeTypes={nodeTypes}
         onInit={(instance) => {
           reactFlowInstance.current = instance;
@@ -487,7 +559,7 @@ const MetricTree = () => {
         fitView={false}
         attributionPosition="bottom-left"
         panOnScroll={false}
-        zoomOnScroll={false}
+        zoomOnScroll={true}
         panOnDrag={true}
       >
         <Background 

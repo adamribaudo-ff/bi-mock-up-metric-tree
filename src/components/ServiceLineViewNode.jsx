@@ -1,16 +1,40 @@
-import { memo } from 'react';
+import { memo, useState, useMemo } from 'react';
 import { Handle, Position } from 'reactflow';
 import ServiceLineChart from './ServiceLineChart';
 import DepartmentChart from './DepartmentChart';
 import './ServiceLineViewNode.css';
 
 const ServiceLineViewNode = ({ data }) => {
+  const [breakdownType, setBreakdownType] = useState('serviceLine');
+  
   const handleClose = (e) => {
     e.stopPropagation();
     if (data.onClose) {
       data.onClose();
     }
   };
+
+  // Get the current breakdown data based on selected type
+  const breakdownData = useMemo(() => {
+    if (data.metric.departmentData) {
+      // For capacity metrics, always use department data
+      return data.metric.departmentData;
+    }
+    
+    switch (breakdownType) {
+      case 'serviceLine':
+        return data.metric.serviceLineData || [];
+      case 'businessUnit':
+        return data.metric.businessUnitData || [];
+      case 'accountPortfolio':
+        return data.metric.accountPortfolioData || [];
+      default:
+        return data.metric.serviceLineData || [];
+    }
+  }, [breakdownType, data.metric]);
+
+  // Determine if this is a capacity metric (uses department breakdown)
+  const isCapacityMetric = !!data.metric.departmentData;
 
   return (
     <div className="service-line-view-node">
@@ -21,7 +45,7 @@ const ServiceLineViewNode = ({ data }) => {
       />
       <div className="service-line-view-card">
         <div className="service-line-view-header">
-          <h4 className="service-line-view-title">Service Line Breakdown</h4>
+          <h4 className="service-line-view-title">Breakdown by:</h4>
           <button
             className="service-line-view-close"
             onClick={handleClose}
@@ -32,7 +56,20 @@ const ServiceLineViewNode = ({ data }) => {
             </svg>
           </button>
         </div>
-        {data.metric.departmentData ? (
+        {!isCapacityMetric && (
+          <div className="breakdown-select-container">
+            <select
+              className="breakdown-select"
+              value={breakdownType}
+              onChange={(e) => setBreakdownType(e.target.value)}
+            >
+              <option value="serviceLine">Service Line</option>
+              <option value="businessUnit">Business Unit</option>
+              <option value="accountPortfolio">Account Portfolio</option>
+            </select>
+          </div>
+        )}
+        {isCapacityMetric ? (
           <DepartmentChart 
             data={data.metric.departmentData} 
             width={280} 
@@ -40,7 +77,7 @@ const ServiceLineViewNode = ({ data }) => {
           />
         ) : (
           <ServiceLineChart 
-            data={data.metric.serviceLineData} 
+            data={breakdownData} 
             width={280} 
             height={150}
           />

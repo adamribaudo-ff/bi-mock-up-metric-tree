@@ -23,9 +23,27 @@ const generateYearToDateData = (startValue, trend = 'up') => {
 // Generate service line breakdown
 const generateServiceLineData = () => {
   return [
-    { serviceLine: 'Shopify', value: Math.floor(Math.random() * 40) + 30 },
-    { serviceLine: 'E-Commerce', value: Math.floor(Math.random() * 40) + 30 },
-    { serviceLine: 'CMS', value: Math.floor(Math.random() * 40) + 30 }
+    { label: 'Shopify', value: Math.floor(Math.random() * 40) + 30 },
+    { label: 'E-Commerce', value: Math.floor(Math.random() * 40) + 30 },
+    { label: 'CMS', value: Math.floor(Math.random() * 40) + 30 }
+  ];
+};
+
+// Generate business unit breakdown
+const generateBusinessUnitData = () => {
+  return [
+    { label: 'Enterprise', value: Math.floor(Math.random() * 50) + 40 },
+    { label: 'Mid-Market', value: Math.floor(Math.random() * 40) + 30 },
+    { label: 'SMB', value: Math.floor(Math.random() * 30) + 20 }
+  ];
+};
+
+// Generate account portfolio breakdown
+const generateAccountPortfolioData = () => {
+  return [
+    { label: 'Strategic', value: Math.floor(Math.random() * 45) + 35 },
+    { label: 'Growth', value: Math.floor(Math.random() * 40) + 30 },
+    { label: 'Standard', value: Math.floor(Math.random() * 35) + 25 }
   ];
 };
 
@@ -50,6 +68,10 @@ export const metrics = [
     level: 1,
     trendData: generateYearToDateData(2000000, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 600, y: 50 }
   },
   {
@@ -63,6 +85,8 @@ export const metrics = [
     level: 2,
     trendData: generateYearToDateData(7000000, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 100, y: 450 }
   },
   {
@@ -76,6 +100,8 @@ export const metrics = [
     level: 3,
     trendData: generateYearToDateData(35, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 50, y: 550 }
   },
   {
@@ -89,6 +115,8 @@ export const metrics = [
     level: 3,
     trendData: generateYearToDateData(50, 'down'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 300, y: 550 }
   },
   {
@@ -102,6 +130,8 @@ export const metrics = [
     level: 3,
     trendData: generateYearToDateData(110000, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 550, y: 550 }
   },
   {
@@ -115,6 +145,8 @@ export const metrics = [
     level: 2,
     trendData: generateYearToDateData(5500000, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 600, y: 450 }
   },
   {
@@ -128,6 +160,8 @@ export const metrics = [
     level: 3,
     trendData: generateYearToDateData(2500000, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 500, y: 550 }
   },
   {
@@ -141,6 +175,8 @@ export const metrics = [
     level: 3,
     trendData: generateYearToDateData(82, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 700, y: 550 }
   },
   {
@@ -154,6 +190,8 @@ export const metrics = [
     level: 2,
     trendData: generateYearToDateData(1150, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 1100, y: 450 }
   },
   {
@@ -167,6 +205,8 @@ export const metrics = [
     level: 3,
     trendData: generateYearToDateData(230, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 900, y: 550 }
   },
   {
@@ -180,6 +220,8 @@ export const metrics = [
     level: 3,
     trendData: generateYearToDateData(300, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 1050, y: 550 }
   },
   {
@@ -193,6 +235,8 @@ export const metrics = [
     level: 3,
     trendData: generateYearToDateData(170, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 1200, y: 550 }
   },
   {
@@ -206,6 +250,8 @@ export const metrics = [
     level: 3,
     trendData: generateYearToDateData(265, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 1350, y: 550 }
   },
   {
@@ -219,6 +265,8 @@ export const metrics = [
     level: 3,
     trendData: generateYearToDateData(175, 'up'),
     serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 1500, y: 550 }
   }
 ];

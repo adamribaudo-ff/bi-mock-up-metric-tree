@@ -45,3 +45,48 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Snapshot Date Control */
+.snapshot-date-control {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+}
+
+.snapshot-date-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.snapshot-date-select {
+  font-size: 14px;
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  min-width: 160px;
+}
+
+.snapshot-date-select:hover {
+  border-color: #2447A0;
+}
+
+.snapshot-date-select:focus {
+  border-color: #2447A0;
+  box-shadow: 0 0 0 3px rgba(36, 71, 160, 0.1);
+}
+

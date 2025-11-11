@@ -43,3 +43,29 @@
   color: #1f2937;
 }
 
+.breakdown-select-container {
+  margin-bottom: 12px;
+}
+
+.breakdown-select {
+  width: 100%;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.breakdown-select:hover {
+  border-color: #2447A0;
+}
+
+.breakdown-select:focus {
+  border-color: #2447A0;
+  box-shadow: 0 0 0 3px rgba(36, 71, 160, 0.1);
+}
+
