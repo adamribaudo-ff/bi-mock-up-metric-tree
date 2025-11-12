@@ -102,7 +102,28 @@ const MetricNode = ({ data, selected }) => {
         type="source"
         position={Position.Right}
         style={{ background: '#FFA823', width: '8px', height: '8px', opacity: 0, pointerEvents: 'none' }}
-        id="view-source"
+        id="view-source-right"
+      />
+      {/* Source handle on left side for view nodes, hidden */}
+      <Handle
+        type="source"
+        position={Position.Left}
+        style={{ background: '#FFA823', width: '8px', height: '8px', opacity: 0, pointerEvents: 'none' }}
+        id="view-source-left"
+      />
+      {/* Source handle on top side for view nodes, hidden */}
+      <Handle
+        type="source"
+        position={Position.Top}
+        style={{ background: '#FFA823', width: '8px', height: '8px', opacity: 0, pointerEvents: 'none' }}
+        id="view-source-top"
+      />
+      {/* Source handle on bottom side for view nodes, hidden */}
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ background: '#FFA823', width: '8px', height: '8px', opacity: 0, pointerEvents: 'none' }}
+        id="view-source-bottom"
       />
     </div>
   );

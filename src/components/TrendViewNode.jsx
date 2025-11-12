@@ -24,17 +24,21 @@ const TrendViewNode = ({ data, selected, style }) => {
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
           if (width > 0 && height > 0) {
-            // Only update if size actually changed significantly (more than 1px difference)
-            const sizeChanged = Math.abs(width - lastReportedSize.current.width) > 1 || 
-                               Math.abs(height - lastReportedSize.current.height) > 1;
+            // Only update if size actually changed significantly (more than 5px difference)
+            // This prevents minor layout shifts from updating state
+            const sizeChanged = Math.abs(width - lastReportedSize.current.width) > 5 || 
+                               Math.abs(height - lastReportedSize.current.height) > 5;
             
             if (sizeChanged) {
+              // Always update dimensions locally
               setDimensions({ width, height });
-              lastReportedSize.current = { width, height };
-              // Notify parent of size change only if it's a real change
+              
+              // Notify parent of significant size changes
               if (data.onSizeChange) {
                 data.onSizeChange({ width, height });
               }
+              
+              lastReportedSize.current = { width, height };
             }
           }
         }
@@ -42,7 +46,7 @@ const TrendViewNode = ({ data, selected, style }) => {
       resizeObserver.observe(containerRef.current);
       return () => resizeObserver.disconnect();
     }
-  }, [data]);
+  }, [data, initialWidth, initialHeight]);
   
   // Update dimensions if style prop changes (from saved size)
   useEffect(() => {
@@ -93,6 +97,25 @@ const TrendViewNode = ({ data, selected, style }) => {
       <Handle
         type="target"
         position={Position.Left}
+        id="left"
+        style={{ background: '#FFA823', width: '8px', height: '8px' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right"
+        style={{ background: '#FFA823', width: '8px', height: '8px' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="top"
+        style={{ background: '#FFA823', width: '8px', height: '8px' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Bottom}
+        id="bottom"
         style={{ background: '#FFA823', width: '8px', height: '8px' }}
       />
       <div ref={containerRef} className="trend-view-card">

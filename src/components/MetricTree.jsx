@@ -365,15 +365,69 @@ const MetricTree = () => {
     const metricEdges = initialEdges;
     const viewEdges = [];
 
+    // Helper function to determine which handles to use based on node positions
+    const getClosestHandles = (sourceNode, targetNode) => {
+      if (!sourceNode || !targetNode) return { sourceHandle: null, targetHandle: null };
+      
+      const sourceX = sourceNode.position.x;
+      const sourceY = sourceNode.position.y;
+      const targetX = targetNode.position.x;
+      const targetY = targetNode.position.y;
+      
+      // Calculate relative position
+      const dx = targetX - sourceX;
+      const dy = targetY - sourceY;
+      
+      // Determine primary direction (horizontal vs vertical)
+      const absX = Math.abs(dx);
+      const absY = Math.abs(dy);
+      
+      let sourceHandle, targetHandle;
+      
+      // Choose handles based on which direction is more significant
+      if (absX > absY) {
+        // Horizontal connection is dominant
+        if (dx > 0) {
+          // Target is to the right of source
+          sourceHandle = 'view-source-right';
+          targetHandle = 'left';
+        } else {
+          // Target is to the left of source
+          sourceHandle = 'view-source-left';
+          targetHandle = 'right';
+        }
+      } else {
+        // Vertical connection is dominant
+        if (dy > 0) {
+          // Target is below source
+          sourceHandle = 'view-source-bottom';
+          targetHandle = 'top';
+        } else {
+          // Target is above source
+          sourceHandle = 'view-source-top';
+          targetHandle = 'bottom';
+        }
+      }
+      
+      return { sourceHandle, targetHandle };
+    };
+
     viewNodes.forEach((viewInfo, metricId) => {
+      const metricNode = allNodes.find(n => n.id === metricId);
+      
       if (viewInfo.trendViewId) {
+        const trendNode = allNodes.find(n => n.id === viewInfo.trendViewId);
+        const { sourceHandle, targetHandle } = getClosestHandles(metricNode, trendNode);
+        
         viewEdges.push({
           id: `e${metricId}-${viewInfo.trendViewId}`,
           source: metricId,
-          sourceHandle: 'view-source',
+          sourceHandle,
           target: viewInfo.trendViewId,
-          type: 'smoothstep',
+          targetHandle,
+          type: 'default',
           animated: false,
+          updatable: true,
           style: {
             stroke: '#FFA823',
             strokeWidth: 2,
@@ -384,13 +438,18 @@ const MetricTree = () => {
       }
 
       if (viewInfo.serviceLineViewId) {
+        const serviceLineNode = allNodes.find(n => n.id === viewInfo.serviceLineViewId);
+        const { sourceHandle, targetHandle } = getClosestHandles(metricNode, serviceLineNode);
+        
         viewEdges.push({
           id: `e${metricId}-${viewInfo.serviceLineViewId}`,
           source: metricId,
-          sourceHandle: 'view-source',
+          sourceHandle,
           target: viewInfo.serviceLineViewId,
-          type: 'smoothstep',
+          targetHandle,
+          type: 'default',
           animated: false,
+          updatable: true,
           style: {
             stroke: '#FFA823',
             strokeWidth: 2,
@@ -402,7 +461,7 @@ const MetricTree = () => {
     });
 
     return [...metricEdges, ...viewEdges];
-  }, [initialEdges, viewNodes]);
+  }, [initialEdges, viewNodes, allNodes]);
 
   // Don't use allNodes as initial value - it changes and useNodesState will reset nodes, losing functions
   // Instead, use empty array and manage nodes entirely through our useEffect
@@ -440,8 +499,50 @@ const MetricTree = () => {
     }
     if (node.type === 'trendView' || node.type === 'serviceLineView') {
       markViewNodeAsMoved(node.id);
+      
+      // Recalculate edges in real-time during drag
+      setEdges((currentEdges) => {
+        return currentEdges.map((edge) => {
+          // Check if this edge involves the dragged node
+          if (edge.target === node.id) {
+            // Get current node positions from React Flow
+            const currentNodes = reactFlowInstance.current?.getNodes() || [];
+            const sourceNode = currentNodes.find(n => n.id === edge.source);
+            const targetNode = currentNodes.find(n => n.id === edge.target);
+            
+            if (sourceNode && targetNode) {
+              const dx = targetNode.position.x - sourceNode.position.x;
+              const dy = targetNode.position.y - sourceNode.position.y;
+              const absX = Math.abs(dx);
+              const absY = Math.abs(dy);
+              
+              let newSourceHandle, newTargetHandle;
+              if (absX > absY) {
+                if (dx > 0) {
+                  newSourceHandle = 'view-source-right';
+                  newTargetHandle = 'left';
+                } else {
+                  newSourceHandle = 'view-source-left';
+                  newTargetHandle = 'right';
+                }
+              } else {
+                if (dy > 0) {
+                  newSourceHandle = 'view-source-bottom';
+                  newTargetHandle = 'top';
+                } else {
+                  newSourceHandle = 'view-source-top';
+                  newTargetHandle = 'bottom';
+                }
+              }
+              
+              return { ...edge, sourceHandle: newSourceHandle, targetHandle: newTargetHandle };
+            }
+          }
+          return edge;
+        });
+      });
     }
-  }, [markViewNodeAsMoved]);
+  }, [markViewNodeAsMoved, setEdges]);
   
 
   // Handle node drag stop - save position for view nodes and auto-save state
@@ -451,12 +552,54 @@ const MetricTree = () => {
       if (node.data?.onPositionChange) {
         node.data.onPositionChange(node.position);
       }
+      
+      // Recalculate edges for this view node
+      setEdges((currentEdges) => {
+        return currentEdges.map((edge) => {
+          // Check if this edge involves the dragged node
+          if (edge.target === node.id) {
+            // Get current node positions from React Flow
+            const currentNodes = reactFlowInstance.current?.getNodes() || [];
+            const sourceNode = currentNodes.find(n => n.id === edge.source);
+            const targetNode = currentNodes.find(n => n.id === edge.target);
+            
+            if (sourceNode && targetNode) {
+              const dx = targetNode.position.x - sourceNode.position.x;
+              const dy = targetNode.position.y - sourceNode.position.y;
+              const absX = Math.abs(dx);
+              const absY = Math.abs(dy);
+              
+              let newSourceHandle, newTargetHandle;
+              if (absX > absY) {
+                if (dx > 0) {
+                  newSourceHandle = 'view-source-right';
+                  newTargetHandle = 'left';
+                } else {
+                  newSourceHandle = 'view-source-left';
+                  newTargetHandle = 'right';
+                }
+              } else {
+                if (dy > 0) {
+                  newSourceHandle = 'view-source-bottom';
+                  newTargetHandle = 'top';
+                } else {
+                  newSourceHandle = 'view-source-top';
+                  newTargetHandle = 'bottom';
+                }
+              }
+              
+              return { ...edge, sourceHandle: newSourceHandle, targetHandle: newTargetHandle };
+            }
+          }
+          return edge;
+        });
+      });
     }
     // Auto-save after a short delay to ensure state is updated
     setTimeout(() => {
       autoSaveState();
     }, 100);
-  }, [autoSaveState]);
+  }, [autoSaveState, setEdges]);
 
   // Update view node positions relative to their metric cards only if they haven't been manually moved
   useEffect(() => {
@@ -591,35 +734,34 @@ const MetricTree = () => {
     // Force update nodes when allNodes changes
     // Use the latest allNodes directly to ensure we have fresh data
     setNodes((currentNodes) => {
-      // Create a map of existing node positions
-      const positionMap = new Map();
-      currentNodes.forEach(node => {
-        positionMap.set(node.id, node.position);
-      });
-
       // Start with all new nodes from allNodes (which is already up-to-date from the closure)
       // Map over allNodes to preserve all node data including fresh callbacks
       const updatedNodes = allNodes.map(newNode => {
-        // For view nodes, position them relative to their metric card only if not manually moved
+        // First, check if this exact node exists in currentNodes and preserve position/style
+        const existingNode = currentNodes.find(n => n.id === newNode.id);
+        
+        // If this exact node exists, preserve position but use the NEWER style
+        if (existingNode) {
+          // For view nodes, prefer the style from allNodes (which comes from state) over currentNodes
+          // because state is updated immediately but React Flow's internal nodes lag behind
+          const styleToUse = (newNode.type === 'trendView' || newNode.type === 'serviceLineView')
+            ? (newNode.style || existingNode.style) // Use new style from allNodes if available
+            : (existingNode.style || newNode.style); // For other nodes, preserve existing
+            
+          const preservedNode = { 
+            ...newNode, 
+            position: existingNode.position,
+            style: styleToUse,
+          };
+          return preservedNode;
+        }
+        
+        // For NEW view nodes being added, handle positioning
         if (newNode.type === 'trendView' || newNode.type === 'serviceLineView') {
           // Find the metric node this view belongs to
           const metricId = newNode.id.split('-').slice(0, -1).join('-');
           const metricNode = currentNodes.find(n => n.id === metricId) || allNodes.find(n => n.id === metricId);
           if (metricNode) {
-            const existingViewNode = currentNodes.find(n => n.id === newNode.id);
-            // If view node already exists, preserve its position and style
-            if (existingViewNode) {
-              const preservedNode = { ...newNode, position: existingViewNode.position };
-              // Preserve style if it exists (contains saved size)
-              if (existingViewNode.style) {
-                preservedNode.style = existingViewNode.style;
-              }
-              // If manually moved, we're done
-              if (manuallyMovedViewNodes.has(newNode.id)) {
-                return preservedNode;
-              }
-              // Otherwise, continue to check for saved position/size
-            }
             
             // Check for saved position/size in viewNodes state (for when toggling back on)
             const viewInfo = viewNodes.get(metricId) || {};
@@ -695,16 +837,14 @@ const MetricTree = () => {
           }
         }
         
-        // For metric nodes, preserve existing position if it exists
-        // But always use the new node data to ensure callbacks are up to date
-        const existingPosition = positionMap.get(newNode.id);
-        if (existingPosition && newNode.type === 'metric') {
+        // For metric nodes, check if existing and preserve position
+        if (existingNode && newNode.type === 'metric') {
           // Preserve position but use all other data from newNode (including updated callbacks)
           // Create a completely new object to ensure React Flow sees it as changed
           return { 
             id: newNode.id,
             type: newNode.type,
-            position: existingPosition,
+            position: existingNode.position,
             data: { 
               ...newNode.data, // Fresh copy with all callbacks
               // Ensure these are fresh references
@@ -882,6 +1022,7 @@ const MetricTree = () => {
         onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        connectionMode="loose"
         onInit={(instance) => {
           reactFlowInstance.current = instance;
         }}
