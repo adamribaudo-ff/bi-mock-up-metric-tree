@@ -19,6 +19,10 @@ import MetricEdge from './MetricEdge';
 import { getMetricsForPage } from '../data/pageMetrics';
 import { getChildren } from '../data/metrics';
 import { usePage } from '../context/PageContext';
+import { useMetricTreeState } from '../hooks/useMetricTreeState';
+import { useViewNodeManager } from '../hooks/useViewNodeManager';
+import { calculateNodePositions } from '../utils/layoutCalculations';
+import { saveFullState, loadFullState } from '../utils/storage';
 import './MetricTree.css';
 
 const nodeTypes = {
@@ -35,129 +39,33 @@ const MetricTree = () => {
   const { currentPage } = usePage();
   const metrics = getMetricsForPage(currentPage);
   
-  // Get storage key for current page (memoized)
-  const getStorageKey = useCallback((key) => `metricTreeState-${currentPage}-${key}`, [currentPage]);
-  
-  // Helper to get storage key (for use in initial state)
-  const getStorageKeySync = (key) => `metricTreeState-${currentPage}-${key}`;
-  
-  // Track which level 2 metrics are expanded
-  // Default to having Sales Pipeline expanded (only for revenue-plan)
-  const [expandedMetrics, setExpandedMetrics] = useState(() => {
-    const saved = localStorage.getItem(getStorageKeySync('expandedMetrics'));
-    if (saved) {
-      try {
-        return new Set(JSON.parse(saved));
-      } catch (e) {
-        return new Set(metrics.length > 0 ? ['sales-pipeline'] : []);
-      }
-    }
-    return new Set(metrics.length > 0 ? ['sales-pipeline'] : []);
+  // Use custom hooks for state management
+  const {
+    expandedMetrics,
+    viewNodes,
+    manuallyMovedViewNodes,
+    hiddenNodes,
+    snapshotDate,
+    setExpandedMetrics,
+    setViewNodes,
+    setManuallyMovedViewNodes,
+    setHiddenNodes,
+    setSnapshotDate,
+    resetState,
+  } = useMetricTreeState(currentPage, metrics);
+
+  // Use view node manager for view node operations
+  const {
+    createViewNode,
+    removeViewNode,
+    updateViewNodePosition,
+    updateViewNodeSize,
+    markViewNodeAsMoved,
+  } = useViewNodeManager({
+    viewNodes,
+    setViewNodes,
+    setManuallyMovedViewNodes,
   });
-  
-  // Track which view nodes exist (trend and service line views)
-  const [viewNodes, setViewNodes] = useState(() => {
-    const saved = localStorage.getItem(getStorageKeySync('viewNodes'));
-    if (saved) {
-      try {
-        return new Map(JSON.parse(saved));
-      } catch (e) {
-        return new Map();
-      }
-    }
-    return new Map();
-  });
-  
-  // Track which view nodes have been manually moved by the user
-  const [manuallyMovedViewNodes, setManuallyMovedViewNodes] = useState(() => {
-    const saved = localStorage.getItem(getStorageKeySync('manuallyMovedViewNodes'));
-    if (saved) {
-      try {
-        return new Set(JSON.parse(saved));
-      } catch (e) {
-        return new Set();
-      }
-    }
-    return new Set();
-  });
-  
-  // Track which individual child nodes are hidden
-  const [hiddenNodes, setHiddenNodes] = useState(() => {
-    const saved = localStorage.getItem(getStorageKeySync('hiddenNodes'));
-    if (saved) {
-      try {
-        return new Set(JSON.parse(saved));
-      } catch (e) {
-        return new Set();
-      }
-    }
-    return new Set();
-  });
-  
-  // Snapshot date state - default to November 2025
-  const [snapshotDate, setSnapshotDate] = useState(() => {
-    const saved = localStorage.getItem(getStorageKeySync('snapshotDate'));
-    return saved || '2025-11';
-  });
-  
-  // Reset state when page changes
-  useEffect(() => {
-    const storageKey = (key) => `metricTreeState-${currentPage}-${key}`;
-    
-    // Load state for new page
-    const savedExpanded = localStorage.getItem(storageKey('expandedMetrics'));
-    if (savedExpanded) {
-      try {
-        const parsed = JSON.parse(savedExpanded);
-        setExpandedMetrics(new Set(parsed));
-      } catch (e) {
-        setExpandedMetrics(new Set(metrics.length > 0 ? ['sales-pipeline'] : []));
-      }
-    } else {
-      setExpandedMetrics(new Set(metrics.length > 0 ? ['sales-pipeline'] : []));
-    }
-    
-    const savedViewNodes = localStorage.getItem(storageKey('viewNodes'));
-    if (savedViewNodes) {
-      try {
-        const parsed = JSON.parse(savedViewNodes);
-        setViewNodes(new Map(parsed));
-      } catch (e) {
-        setViewNodes(new Map());
-      }
-    } else {
-      setViewNodes(new Map());
-    }
-    
-    const savedMoved = localStorage.getItem(storageKey('manuallyMovedViewNodes'));
-    if (savedMoved) {
-      try {
-        const parsed = JSON.parse(savedMoved);
-        setManuallyMovedViewNodes(new Set(parsed));
-      } catch (e) {
-        setManuallyMovedViewNodes(new Set());
-      }
-    } else {
-      setManuallyMovedViewNodes(new Set());
-    }
-    
-    const savedHidden = localStorage.getItem(storageKey('hiddenNodes'));
-    if (savedHidden) {
-      try {
-        const parsed = JSON.parse(savedHidden);
-        setHiddenNodes(new Set(parsed));
-      } catch (e) {
-        setHiddenNodes(new Set());
-      }
-    } else {
-      setHiddenNodes(new Set());
-    }
-    
-    const savedDate = localStorage.getItem(storageKey('snapshotDate'));
-    setSnapshotDate(savedDate || '2025-11');
-    
-    hasRestoredPositions.current = false;
-  }, [currentPage]);
   
   // Generate month/year options going back 24 months
   const snapshotDateOptions = useMemo(() => {
@@ -258,151 +166,6 @@ const MetricTree = () => {
     return visible;
   }, [metrics, expandedMetrics, hiddenNodes]);
 
-  // Calculate auto-layout positions for nodes
-  const calculateNodePositions = useCallback((visibleMetrics, expandedMetrics) => {
-    const nodePositions = new Map();
-    const NODE_WIDTH = 280;
-    const HORIZONTAL_SPACING = 320;
-    const VERTICAL_SPACING = 450;
-
-    // Set base positions for level 1 and 2
-    visibleMetrics.forEach((metric) => {
-      if (metric.level === 1) {
-        nodePositions.set(metric.id, metric.position);
-      } else if (metric.level === 2) {
-        nodePositions.set(metric.id, metric.position);
-      }
-    });
-
-    // Group level 3 nodes by their parent
-    const childrenByParent = new Map();
-    visibleMetrics.forEach((metric) => {
-      if (metric.level === 3 && metric.parentId) {
-        if (!childrenByParent.has(metric.parentId)) {
-          childrenByParent.set(metric.parentId, []);
-        }
-        childrenByParent.get(metric.parentId).push(metric);
-      }
-    });
-
-    // Calculate positions for each parent's children
-    const allLevel3Positions = [];
-    childrenByParent.forEach((children, parentId) => {
-      const parent = visibleMetrics.find(m => m.id === parentId);
-      if (!parent) return;
-
-      const parentPos = nodePositions.get(parent.id);
-      const sortedChildren = children.sort((a, b) => a.id.localeCompare(b.id));
-      const totalSiblings = sortedChildren.length;
-      const startX = parentPos.x - ((totalSiblings - 1) * HORIZONTAL_SPACING) / 2;
-
-      sortedChildren.forEach((child, index) => {
-        const x = startX + (index * HORIZONTAL_SPACING);
-        const y = parentPos.y + VERTICAL_SPACING;
-        allLevel3Positions.push({ id: child.id, x, y });
-      });
-    });
-
-    // Check for overlaps and adjust positions
-    const adjustedPositions = [];
-    allLevel3Positions.forEach((pos) => {
-      let adjustedX = pos.x;
-      let adjustedY = pos.y;
-      let hasOverlap = true;
-      let attempts = 0;
-      const maxAttempts = 100;
-
-      while (hasOverlap && attempts < maxAttempts) {
-        hasOverlap = false;
-        
-        // Check overlap with existing level 3 positions
-        for (const existing of adjustedPositions) {
-          const distanceX = Math.abs(adjustedX - existing.x);
-          const distanceY = Math.abs(adjustedY - existing.y);
-          
-          // If nodes are too close horizontally and on the same row
-          if (distanceX < HORIZONTAL_SPACING && distanceY < 50) {
-            hasOverlap = true;
-            // Shift to the right
-            adjustedX = existing.x + HORIZONTAL_SPACING;
-            break;
-          }
-        }
-
-        // Check overlap with level 2 nodes
-        visibleMetrics.forEach((metric) => {
-          if (metric.level === 2) {
-            const level2Pos = nodePositions.get(metric.id);
-            const distanceX = Math.abs(adjustedX - level2Pos.x);
-            const distanceY = Math.abs(adjustedY - level2Pos.y);
-            
-            if (distanceX < HORIZONTAL_SPACING && distanceY < 200) {
-              hasOverlap = true;
-              adjustedX = level2Pos.x + HORIZONTAL_SPACING;
-            }
-          }
-        });
-
-        attempts++;
-      }
-
-      adjustedPositions.push({ id: pos.id, x: adjustedX, y: adjustedY });
-      nodePositions.set(pos.id, { x: adjustedX, y: adjustedY });
-    });
-
-    return nodePositions;
-  }, []);
-
-  // Create view nodes (trend and service line)
-  const createViewNodes = useCallback((metricId, viewType) => {
-    setViewNodes((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(metricId) || {};
-      const viewNodeId = `${metricId}-${viewType}`;
-      
-      if (viewType === 'trend') {
-        existing.trendViewId = viewNodeId;
-      } else {
-        existing.serviceLineViewId = viewNodeId;
-      }
-      next.set(metricId, existing);
-      return next;
-    });
-  }, []);
-
-  // Remove view node (but preserve position and size for when it's toggled back on)
-  const removeViewNode = useCallback((metricId, viewType) => {
-    setViewNodes((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(metricId);
-      if (!existing) return prev;
-      
-      let viewNodeIdToRemove = null;
-      if (viewType === 'trend') {
-        viewNodeIdToRemove = existing.trendViewId;
-        // Only delete the view node ID, preserve trendPosition and trendSize
-        delete existing.trendViewId;
-      } else {
-        viewNodeIdToRemove = existing.serviceLineViewId;
-        // Only delete the view node ID, preserve serviceLinePosition and serviceLineSize
-        delete existing.serviceLineViewId;
-      }
-      
-      // Remove from manually moved set if it was tracked
-      if (viewNodeIdToRemove) {
-        setManuallyMovedViewNodes((prevMoved) => {
-          const nextMoved = new Set(prevMoved);
-          nextMoved.delete(viewNodeIdToRemove);
-          return nextMoved;
-        });
-      }
-      
-      // Always keep the entry even if only position/size remain, so state is preserved
-      next.set(metricId, existing);
-      return next;
-    });
-  }, []);
-
   // Convert visible metrics to React Flow nodes with auto-layout
   const initialNodes = useMemo(() => {
     const nodePositions = calculateNodePositions(visibleMetrics, expandedMetrics);
@@ -436,7 +199,7 @@ const MetricTree = () => {
             if (currentViewInfo.trendViewId) {
               removeViewNode(metric.id, 'trend');
             } else {
-              createViewNodes(metric.id, 'trend');
+              createViewNode(metric.id, 'trend');
             }
           },
           onCreateServiceLineView: () => {
@@ -445,7 +208,7 @@ const MetricTree = () => {
             if (currentViewInfo.serviceLineViewId) {
               removeViewNode(metric.id, 'serviceLine');
             } else {
-              createViewNodes(metric.id, 'serviceLine');
+              createViewNode(metric.id, 'serviceLine');
             }
           },
           hasTrendView: !!viewNodeInfo.trendViewId,
@@ -456,7 +219,7 @@ const MetricTree = () => {
     });
     
     return nodes;
-  }, [visibleMetrics, expandedMetrics, toggleExpansion, calculateNodePositions, viewNodes, createViewNodes, removeViewNode]);
+  }, [visibleMetrics, expandedMetrics, toggleExpansion, viewNodes, createViewNode, removeViewNode]);
 
   // Create edges - reversed direction (child -> parent)
   const initialEdges = useMemo(() => {
@@ -531,24 +294,8 @@ const MetricTree = () => {
             data: { 
               metric,
               onClose: () => removeViewNode(metricId, 'trend'),
-              onPositionChange: (position) => {
-                setViewNodes((prev) => {
-                  const next = new Map(prev);
-                  const existing = next.get(metricId) || {};
-                  existing.trendPosition = position;
-                  next.set(metricId, existing);
-                  return next;
-                });
-              },
-              onSizeChange: (size) => {
-                setViewNodes((prev) => {
-                  const next = new Map(prev);
-                  const existing = next.get(metricId) || {};
-                  existing.trendSize = size;
-                  next.set(metricId, existing);
-                  return next;
-                });
-              }
+              onPositionChange: (position) => updateViewNodePosition(metricId, 'trend', position),
+              onSizeChange: (size) => updateViewNodeSize(metricId, 'trend', size),
             },
             draggable: true,
             style: savedSize,
@@ -600,24 +347,8 @@ const MetricTree = () => {
             data: { 
               metric,
               onClose: () => removeViewNode(metricId, 'serviceLine'),
-              onPositionChange: (position) => {
-                setViewNodes((prev) => {
-                  const next = new Map(prev);
-                  const existing = next.get(metricId) || {};
-                  existing.serviceLinePosition = position;
-                  next.set(metricId, existing);
-                  return next;
-                });
-              },
-              onSizeChange: (size) => {
-                setViewNodes((prev) => {
-                  const next = new Map(prev);
-                  const existing = next.get(metricId) || {};
-                  existing.serviceLineSize = size;
-                  next.set(metricId, existing);
-                  return next;
-                });
-              }
+              onPositionChange: (position) => updateViewNodePosition(metricId, 'serviceLine', position),
+              onSizeChange: (size) => updateViewNodeSize(metricId, 'serviceLine', size),
             },
             draggable: true,
             style: savedSize,
@@ -627,7 +358,7 @@ const MetricTree = () => {
     });
 
     return [...metricNodes, ...viewNodeList];
-  }, [initialNodes, viewNodes, metrics, removeViewNode, expandedMetrics]);
+  }, [initialNodes, viewNodes, metrics, removeViewNode, expandedMetrics, updateViewNodePosition, updateViewNodeSize]);
 
   // Include view node edges
   const allEdges = useMemo(() => {
@@ -697,15 +428,8 @@ const MetricTree = () => {
       snapshotDate: snapshotDate,
     };
     
-    localStorage.setItem(getStorageKey('fullState'), JSON.stringify(state));
-    
-    // Also save individual state pieces for easier loading
-    localStorage.setItem(getStorageKey('expandedMetrics'), JSON.stringify(Array.from(expandedMetrics)));
-    localStorage.setItem(getStorageKey('viewNodes'), JSON.stringify(Array.from(viewNodes.entries())));
-    localStorage.setItem(getStorageKey('manuallyMovedViewNodes'), JSON.stringify(Array.from(manuallyMovedViewNodes)));
-    localStorage.setItem(getStorageKey('hiddenNodes'), JSON.stringify(Array.from(hiddenNodes)));
-    localStorage.setItem(getStorageKey('snapshotDate'), snapshotDate);
-  }, [expandedMetrics, viewNodes, manuallyMovedViewNodes, hiddenNodes, snapshotDate, getStorageKey]);
+    saveFullState(currentPage, state);
+  }, [expandedMetrics, viewNodes, manuallyMovedViewNodes, hiddenNodes, snapshotDate, currentPage]);
 
   // Handle node drag - mark view nodes as manually moved during drag
   const handleNodeDrag = useCallback((event, node) => {
@@ -715,12 +439,9 @@ const MetricTree = () => {
       return; // Don't handle drag if it's from resize handle
     }
     if (node.type === 'trendView' || node.type === 'serviceLineView') {
-      setManuallyMovedViewNodes((prev) => {
-        if (prev.has(node.id)) return prev; // Already marked
-        return new Set(prev).add(node.id);
-      });
+      markViewNodeAsMoved(node.id);
     }
-  }, []);
+  }, [markViewNodeAsMoved]);
   
 
   // Handle node drag stop - save position for view nodes and auto-save state
@@ -1048,66 +769,10 @@ const MetricTree = () => {
     [setEdges]
   );
 
-  // Auto-save when expanded metrics change
-  useEffect(() => {
-    if (reactFlowInstance.current) {
-      localStorage.setItem(getStorageKey('expandedMetrics'), JSON.stringify(Array.from(expandedMetrics)));
-      const timeoutId = setTimeout(() => {
-        autoSaveState();
-      }, 200);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [expandedMetrics, autoSaveState, getStorageKey]);
-  
-  // Auto-save when view nodes change
-  useEffect(() => {
-    if (reactFlowInstance.current) {
-      localStorage.setItem(getStorageKey('viewNodes'), JSON.stringify(Array.from(viewNodes.entries())));
-      const timeoutId = setTimeout(() => {
-        autoSaveState();
-      }, 200);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [viewNodes, autoSaveState, getStorageKey]);
-  
-  // Auto-save when hidden nodes change
-  useEffect(() => {
-    if (reactFlowInstance.current) {
-      localStorage.setItem(getStorageKey('hiddenNodes'), JSON.stringify(Array.from(hiddenNodes)));
-      const timeoutId = setTimeout(() => {
-        autoSaveState();
-      }, 200);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [hiddenNodes, autoSaveState, getStorageKey]);
-  
-  // Auto-save when snapshot date changes
-  useEffect(() => {
-    if (reactFlowInstance.current) {
-      localStorage.setItem(getStorageKey('snapshotDate'), snapshotDate);
-      const timeoutId = setTimeout(() => {
-        autoSaveState();
-      }, 200);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [snapshotDate, autoSaveState, getStorageKey]);
-
   // Reset metrics - clear saved state and reset to defaults (without changing zoom/pan)
   const resetView = useCallback(() => {
-    // Clear localStorage for current page
-    localStorage.removeItem(getStorageKey('fullState'));
-    localStorage.removeItem(getStorageKey('expandedMetrics'));
-    localStorage.removeItem(getStorageKey('viewNodes'));
-    localStorage.removeItem(getStorageKey('manuallyMovedViewNodes'));
-    localStorage.removeItem(getStorageKey('hiddenNodes'));
-    localStorage.removeItem(getStorageKey('snapshotDate'));
-    
-    // Reset state to defaults - this will trigger recalculation of initialNodes
-    setExpandedMetrics(new Set(metrics.length > 0 ? ['sales-pipeline'] : []));
-    setViewNodes(new Map());
-    setManuallyMovedViewNodes(new Set());
-    setHiddenNodes(new Set());
-    setSnapshotDate('2025-11');
+    // Use the hook's resetState function
+    resetState();
     hasRestoredPositions.current = false;
     
     // Force nodes to recalculate positions from initial metric positions
@@ -1150,16 +815,14 @@ const MetricTree = () => {
         return updatedNodes;
       });
     }, 200);
-  }, [metrics, calculateNodePositions, getStorageKey]);
+  }, [metrics, resetState, setNodes]);
 
   // Restore flow state on initial load using React Flow's toObject() format
   useEffect(() => {
-    const saved = localStorage.getItem(getStorageKey('fullState'));
-    if (!saved || !reactFlowInstance.current || hasRestoredPositions.current) return;
+    const state = loadFullState(currentPage);
+    if (!state || !reactFlowInstance.current || hasRestoredPositions.current) return;
     
     try {
-      const state = JSON.parse(saved);
-      
       // DON'T restore nodes/edges from localStorage - they don't have function callbacks
       // Instead, let our structure update useEffect handle node creation with fresh callbacks
       // Only restore viewport
@@ -1173,7 +836,7 @@ const MetricTree = () => {
     } catch (error) {
       console.error('Error restoring flow state:', error);
     }
-  }, [nodes.length, getStorageKey]); // Run when node count or page changes
+  }, [nodes.length, currentPage]); // Run when node count or page changes
 
   // Show empty state if no metrics
   if (!metrics || metrics.length === 0) {
