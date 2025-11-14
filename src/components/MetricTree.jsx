@@ -15,6 +15,7 @@ import '@xyflow/react/dist/style.css';
 import MetricNode from './MetricNode';
 import TrendViewNode from './TrendViewNode';
 import ServiceLineViewNode from './ServiceLineViewNode';
+import MalloyChartNode from './MalloyChartNode';
 import MetricEdge from './MetricEdge';
 import { getMetricsForPage } from '../data/pageMetrics';
 import { getChildren } from '../data/metrics';
@@ -29,6 +30,7 @@ const nodeTypes = {
   metric: MetricNode,
   trendView: TrendViewNode,
   serviceLineView: ServiceLineViewNode,
+  malloyChart: MalloyChartNode,
 };
 
 const edgeTypes = {
@@ -357,8 +359,33 @@ const MetricTree = () => {
       }
     });
 
+    // Add Malloy chart node for Budget Variance page
+    if (currentPage === 'budget-variance') {
+      viewNodeList.push({
+        id: 'malloy-opportunity-chart',
+        type: 'malloyChart',
+        position: { x: 100, y: 900 }, // Position below the main metrics
+        data: {
+          label: 'Opportunity Pipeline',
+          query: `# viz = bar
+run: opportunity -> {
+  group_by: opportunity_stage
+  aggregate: opportunity_count
+}`,
+          onClose: () => {
+            // Optional: handle close if needed
+          },
+        },
+        draggable: true,
+        style: {
+          width: 600,
+          height: 450,
+        },
+      });
+    }
+
     return [...metricNodes, ...viewNodeList];
-  }, [initialNodes, viewNodes, metrics, removeViewNode, expandedMetrics, updateViewNodePosition, updateViewNodeSize]);
+  }, [initialNodes, viewNodes, metrics, removeViewNode, expandedMetrics, updateViewNodePosition, updateViewNodeSize, currentPage]);
 
   // Include view node edges
   const allEdges = useMemo(() => {
