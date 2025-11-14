@@ -76,6 +76,31 @@ const MalloyChartNode = ({ data, selected, style }) => {
               rowLimit: 1000,
               shouldFillWidth: true,
             },
+            vegaConfigOverride: () => ({
+              range: {
+                category: ['#2447A0', '#FFA823', '#1a3575', '#12B5CB', '#E8710A'],
+              },
+              axis: {
+                labelFont: 'Inter',
+                titleFont: 'Inter',
+                labelColor: '#1f2937',
+                titleColor: '#2447A0',
+                titleFontSize: 13,
+                titleFontWeight: 600,
+              },
+              legend: {
+                labelFont: 'Inter',
+                titleFont: 'Inter',
+                labelColor: '#1f2937',
+                titleColor: '#2447A0',
+                titleFontWeight: 600,
+              },
+              title: {
+                font: 'Inter',
+                color: '#2447A0',
+                fontWeight: 600,
+              },
+            }),
           });
         }
 

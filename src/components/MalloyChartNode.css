@@ -37,6 +37,16 @@
   align-items: center;
   justify-content: center;
   min-height: 0;
+  
+  /* Override Malloy theme variables to match app branding */
+  --malloy-font-family: 'Inter', sans-serif;
+  --malloy-title-color: #2447A0;
+  --malloy-label-color: #1f2937;
+  --malloy-theme--font-family: 'Inter', sans-serif;
+  --malloy-theme--table-header-color: #2447A0;
+  --malloy-theme--table-body-color: #1f2937;
+  --malloy-theme--table-border: 1px solid #e5e7eb;
+  --malloy-theme--table-background: white;
 }
 
 .malloy-loading {
