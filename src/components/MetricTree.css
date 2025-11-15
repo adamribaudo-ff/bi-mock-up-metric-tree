@@ -94,7 +94,7 @@
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   background: white;
   border: 1px solid rgba(209, 213, 219, 0.8);
-  border-radius: 8px;
+  border-radius: 0;
   bottom: 20px !important;
   right: 240px !important;
   left: auto !important;

@@ -15,9 +15,11 @@ import '@xyflow/react/dist/style.css';
 import MetricNode from './MetricNode';
 import TrendViewNode from './TrendViewNode';
 import ServiceLineViewNode from './ServiceLineViewNode';
+import MalloyChartNode from './MalloyChartNode';
+import QuestionNode from './QuestionNode';
 import MetricEdge from './MetricEdge';
 import { getMetricsForPage } from '../data/pageMetrics';
-import { getChildren } from '../data/metrics';
+import { getNodeChildren, questions } from '../data/metrics';
 import { usePage } from '../context/PageContext';
 import { useMetricTreeState } from '../hooks/useMetricTreeState';
 import { useViewNodeManager } from '../hooks/useViewNodeManager';
@@ -29,6 +31,8 @@ const nodeTypes = {
   metric: MetricNode,
   trendView: TrendViewNode,
   serviceLineView: ServiceLineViewNode,
+  malloyChart: MalloyChartNode,
+  question: QuestionNode,
 };
 
 const edgeTypes = {
@@ -88,9 +92,9 @@ const MetricTree = () => {
     return options;
   }, []);
 
-  // Toggle expansion for a metric
-  const toggleExpansion = useCallback((metricId) => {
-    const allChildren = getChildren(metricId);
+  // Toggle expansion for a node (metric or question)
+  const toggleExpansion = useCallback((nodeId) => {
+    const allChildren = getNodeChildren(nodeId);
     
     setHiddenNodes((prevHidden) => {
       const hiddenChildren = allChildren.filter(child => prevHidden.has(child.id));
@@ -111,15 +115,15 @@ const MetricTree = () => {
       const hiddenChildren = allChildren.filter(child => hiddenNodes.has(child.id));
       const hasHiddenChildren = hiddenChildren.length > 0;
       
-      if (hasHiddenChildren || !prev.has(metricId)) {
+      if (hasHiddenChildren || !prev.has(nodeId)) {
         // Expand if there are hidden children or parent is collapsed
         const next = new Set(prev);
-        next.add(metricId);
+        next.add(nodeId);
         return next;
       } else {
         // All children visible and parent expanded, so collapse
         const next = new Set(prev);
-        next.delete(metricId);
+        next.delete(nodeId);
         return next;
       }
     });
@@ -130,7 +134,7 @@ const MetricTree = () => {
     // Recursively collect the child and all its descendants
     const nodesToHide = [childId];
     const collectDescendants = (nodeId) => {
-      const children = getChildren(nodeId);
+      const children = getNodeChildren(nodeId);
       children.forEach(child => {
         nodesToHide.push(child.id);
         collectDescendants(child.id); // Recursively collect grandchildren
@@ -146,25 +150,46 @@ const MetricTree = () => {
     });
   }, []);
 
-  // Filter visible metrics: level 1, level 2, and level 3 if parent is expanded and not hidden
+  // Recursively check if a node should be visible based on ancestor expansion
+  const isNodeVisible = useCallback((nodeId, parentId) => {
+    // Check if node is explicitly hidden
+    if (hiddenNodes.has(nodeId)) {
+      return false;
+    }
+    
+    // If no parent, it's a root node - always visible
+    if (!parentId) {
+      return true;
+    }
+    
+    // Check if parent is expanded
+    if (!expandedMetrics.has(parentId)) {
+      return false;
+    }
+    
+    // Recursively check parent's visibility
+    // Find parent in metrics or questions
+    const parentMetric = metrics.find(m => m.id === parentId);
+    const parentQuestion = questions.find(q => q.id === parentId);
+    const parent = parentMetric || parentQuestion;
+    
+    if (!parent) {
+      return true; // If parent not found, show the node
+    }
+    
+    return isNodeVisible(parentId, parent.parentId);
+  }, [metrics, expandedMetrics, hiddenNodes]);
+
+  // Filter visible metrics and questions recursively
   const visibleMetrics = useMemo(() => {
     if (!metrics || metrics.length === 0) return [];
-    const visible = metrics.filter((metric) => {
-      // Check if node is hidden
-      if (hiddenNodes.has(metric.id)) {
-        return false;
-      }
-      if (metric.level === 1 || metric.level === 2) {
-        return true;
-      }
-      // Level 3: only show if parent is expanded
-      if (metric.level === 3 && metric.parentId) {
-        return expandedMetrics.has(metric.parentId);
-      }
-      return false;
-    });
-    return visible;
-  }, [metrics, expandedMetrics, hiddenNodes]);
+    return metrics.filter((metric) => isNodeVisible(metric.id, metric.parentId));
+  }, [metrics, isNodeVisible]);
+
+  const visibleQuestions = useMemo(() => {
+    if (currentPage !== 'budget-variance') return [];
+    return questions.filter((question) => isNodeVisible(question.id, question.parentId));
+  }, [currentPage, isNodeVisible]);
 
   // Convert visible metrics to React Flow nodes with auto-layout
   const initialNodes = useMemo(() => {
@@ -175,14 +200,14 @@ const MetricTree = () => {
       const viewNodeInfo = viewNodes.get(metric.id) || {};
       
       // Check if all children are visible
-      const allChildren = getChildren(metric.id);
+      const allChildren = getNodeChildren(metric.id);
       const visibleChildren = allChildren.filter(child => 
-        visibleMetrics.some(m => m.id === child.id)
+        visibleMetrics.some(m => m.id === child.id) || visibleQuestions.some(q => q.id === child.id)
       );
       const allChildrenVisible = allChildren.length > 0 && allChildren.length === visibleChildren.length;
       
-      // Level 2 always has toggle, Level 1 has toggle if it has children that are not all visible
-      const hasToggle = metric.level === 2 || (metric.level === 1 && allChildren.length > 0 && !allChildrenVisible);
+      // Show toggle if node has children
+      const hasToggle = allChildren.length > 0;
       
       return {
         id: metric.id,
@@ -219,20 +244,23 @@ const MetricTree = () => {
     });
     
     return nodes;
-  }, [visibleMetrics, expandedMetrics, toggleExpansion, viewNodes, createViewNode, removeViewNode]);
+  }, [visibleMetrics, visibleQuestions, expandedMetrics, toggleExpansion, viewNodes, createViewNode, removeViewNode]);
 
-  // Create edges - reversed direction (child -> parent)
+  // Create edges - parent to child direction (parent bottom -> child top)
   const initialEdges = useMemo(() => {
     const edges = [];
+    
+    // Edges from parent metrics/questions to their child metrics
     visibleMetrics.forEach((metric) => {
       if (metric.parentId) {
-        // Check if parent is also visible
-        const parentVisible = visibleMetrics.some(m => m.id === metric.parentId);
+        // Check if parent is visible (could be a metric or question)
+        const parentVisible = visibleMetrics.some(m => m.id === metric.parentId) || 
+                            visibleQuestions.some(q => q.id === metric.parentId);
         if (parentVisible) {
           edges.push({
-            id: `e${metric.id}-${metric.parentId}`,
-            source: metric.id, // Child is source
-            target: metric.parentId, // Parent is target
+            id: `e${metric.parentId}-${metric.id}`,
+            source: metric.id, // Child is source (reversed for arrow direction)
+            target: metric.parentId, // Parent is target (reversed for arrow direction)
             type: 'metricEdge',
             animated: true,
             style: { 
@@ -251,14 +279,64 @@ const MetricTree = () => {
         }
       }
     });
+    
+    // Edges from parent questions to their child questions
+    visibleQuestions.forEach((question) => {
+      if (question.parentId) {
+        const parentVisible = visibleQuestions.some(q => q.id === question.parentId);
+        if (parentVisible) {
+          edges.push({
+            id: `e${question.parentId}-${question.id}`,
+            source: question.id, // Child is source (reversed for arrow direction)
+            target: question.parentId, // Parent is target (reversed for arrow direction)
+            type: 'metricEdge',
+            animated: true,
+            style: { 
+              stroke: 'rgba(255, 255, 255, 0.8)', 
+              strokeWidth: 2, 
+              strokeDasharray: '8,4',
+            },
+            markerEnd: {
+              type: 'arrowclosed',
+              color: 'rgba(255, 255, 255, 0.8)',
+            },
+          });
+        }
+      }
+    });
+    
     return edges;
-  }, [visibleMetrics, removeChildNode]);
+  }, [visibleMetrics, visibleQuestions, removeChildNode]);
 
-  // Include view nodes in the nodes array
+  // Include view nodes and question nodes in the nodes array
   const allNodes = useMemo(() => {
     const metricNodes = initialNodes;
     const viewNodeList = [];
     
+    // Add question nodes
+    visibleQuestions.forEach((question) => {
+      const allChildren = getNodeChildren(question.id);
+      const visibleChildren = allChildren.filter(child => 
+        visibleMetrics.some(m => m.id === child.id) || visibleQuestions.some(q => q.id === child.id)
+      );
+      const allChildrenVisible = allChildren.length > 0 && allChildren.length === visibleChildren.length;
+      const hasChildren = allChildren.length > 0;
+      
+      viewNodeList.push({
+        id: question.id,
+        type: 'question',
+        position: question.position,
+        data: {
+          question: question.text,
+          isExpanded: expandedMetrics.has(question.id),
+          allChildrenVisible,
+          onToggleExpand: hasChildren ? () => toggleExpansion(question.id) : null,
+        },
+        draggable: true,
+      });
+    });
+    
+    // Add view nodes (trend/serviceLine charts)
     viewNodes.forEach((viewInfo, metricId) => {
       const metricNode = metricNodes.find(n => n.id === metricId);
       if (!metricNode) return;
@@ -357,14 +435,41 @@ const MetricTree = () => {
       }
     });
 
+    // Add Malloy chart node for Budget Variance page - HIDDEN FOR NOW
+    /*
+    if (currentPage === 'budget-variance') {
+      viewNodeList.push({
+        id: 'malloy-opportunity-chart',
+        type: 'malloyChart',
+        position: { x: 100, y: 900 }, // Position below the main metrics
+        data: {
+          label: 'Opportunity Pipeline',
+          query: `# viz = bar
+run: opportunity -> {
+  group_by: opportunity_stage
+  aggregate: opportunity_count
+}`,
+          onClose: () => {
+            // Optional: handle close if needed
+          },
+        },
+        draggable: true,
+        style: {
+          width: 600,
+          height: 450,
+        },
+      });
+    }
+    */
+
     return [...metricNodes, ...viewNodeList];
-  }, [initialNodes, viewNodes, metrics, removeViewNode, expandedMetrics, updateViewNodePosition, updateViewNodeSize]);
+  }, [initialNodes, visibleQuestions, viewNodes, metrics, removeViewNode, expandedMetrics, updateViewNodePosition, updateViewNodeSize, currentPage, toggleExpansion, visibleMetrics]);
 
   // Include view node edges
   const allEdges = useMemo(() => {
     const metricEdges = initialEdges;
     const viewEdges = [];
-
+    
     // Helper function to determine which handles to use based on node positions
     const getClosestHandles = (sourceNode, targetNode) => {
       if (!sourceNode || !targetNode) return { sourceHandle: null, targetHandle: null };
@@ -928,14 +1033,12 @@ const MetricTree = () => {
           if (metric.level === 1 || metric.level === 2) {
             return true;
           }
-          if (metric.level === 3 && metric.parentId) {
-            return metrics.length > 0 && ['sales-pipeline'].includes(metric.parentId);
-          }
+          // Level 3 children are collapsed by default
           return false;
         });
         
         // Recalculate positions using calculateNodePositions
-        const defaultExpanded = new Set(metrics.length > 0 ? ['sales-pipeline'] : []);
+        const defaultExpanded = new Set(); // No metrics expanded by default
         const nodePositions = calculateNodePositions(currentVisibleMetrics, defaultExpanded);
         
         const updatedNodes = currentNodes.map(node => {
@@ -1041,9 +1144,9 @@ const MetricTree = () => {
         <Controls />
         <MiniMap
           nodeColor={(node) => {
-            if (node.data?.metric?.level === 1) return '#ae53ba';
-            if (node.data?.metric?.level === 2) return '#2a8af6';
-            return '#ae53ba';
+            if (node.type === 'question') return '#7c3aed';
+            if (node.type === 'metric') return '#ae53ba';
+            return '#2a8af6';
           }}
           maskColor="rgba(10, 14, 39, 0.5)"
         />

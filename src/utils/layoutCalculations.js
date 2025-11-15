@@ -99,59 +99,30 @@ export const adjustPositionForOverlap = (pos, existingPositions, level2Positions
 };
 
 /**
- * Calculate auto-layout positions for all visible nodes
- * @param {Array} visibleMetrics - Array of visible metric objects
- * @param {Set} expandedMetrics - Set of expanded metric IDs
+ * Calculate auto-layout positions for all visible nodes recursively
+ * @param {Array} visibleNodes - Array of visible node objects (metrics or questions)
+ * @param {Set} expandedNodes - Set of expanded node IDs
+ * @param {Map} fixedPositions - Map of node ID to fixed position {x, y} from data
  * @returns {Map} Map of node ID to position {x, y}
  */
-export const calculateNodePositions = (visibleMetrics, expandedMetrics) => {
+export const calculateNodePositions = (visibleNodes, expandedNodes, fixedPositions = new Map()) => {
   const nodePositions = new Map();
 
-  // Set base positions for level 1 and 2
-  visibleMetrics.forEach((metric) => {
-    if (metric.level === 1 || metric.level === 2) {
-      nodePositions.set(metric.id, metric.position);
+  // First, set all fixed positions from the data
+  visibleNodes.forEach((node) => {
+    if (node.position) {
+      nodePositions.set(node.id, node.position);
     }
   });
-
-  // Group level 3 nodes by their parent
-  const childrenByParent = new Map();
-  visibleMetrics.forEach((metric) => {
-    if (metric.level === 3 && metric.parentId) {
-      if (!childrenByParent.has(metric.parentId)) {
-        childrenByParent.set(metric.parentId, []);
-      }
-      childrenByParent.get(metric.parentId).push(metric);
-    }
+  
+  // Override with any manually provided fixed positions
+  fixedPositions.forEach((pos, id) => {
+    nodePositions.set(id, pos);
   });
 
-  // Calculate positions for each parent's children
-  const allLevel3Positions = [];
-  childrenByParent.forEach((children, parentId) => {
-    const parent = visibleMetrics.find(m => m.id === parentId);
-    if (!parent) return;
-
-    const parentPos = nodePositions.get(parent.id);
-    const childPositions = calculateChildPositions(parent, children, parentPos);
-    allLevel3Positions.push(...childPositions);
-  });
-
-  // Get level 2 positions for overlap checking
-  const level2Positions = [];
-  visibleMetrics.forEach((metric) => {
-    if (metric.level === 2) {
-      level2Positions.push(nodePositions.get(metric.id));
-    }
-  });
-
-  // Adjust positions to avoid overlaps
-  const adjustedPositions = [];
-  allLevel3Positions.forEach((pos) => {
-    const adjusted = adjustPositionForOverlap(pos, adjustedPositions, level2Positions);
-    adjustedPositions.push(adjusted);
-    nodePositions.set(adjusted.id, { x: adjusted.x, y: adjusted.y });
-  });
-
+  // For now, use the positions defined in the data
+  // Future: implement recursive auto-layout for children without positions
+  
   return nodePositions;
 };
 
