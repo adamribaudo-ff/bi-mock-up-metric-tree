@@ -193,10 +193,8 @@ const MetricTree = () => {
 
   // Convert visible metrics to React Flow nodes with auto-layout
   const initialNodes = useMemo(() => {
-    const nodePositions = calculateNodePositions(visibleMetrics, expandedMetrics);
-    
     const nodes = visibleMetrics.map((metric) => {
-      const position = nodePositions.get(metric.id) || metric.position;
+      const position = metric.position;
       const viewNodeInfo = viewNodes.get(metric.id) || {};
       
       // Check if all children are visible
@@ -942,15 +940,36 @@ run: opportunity -> {
           }
         }
         
-        // For metric nodes, check if existing and preserve position
-        if (existingNode && newNode.type === 'metric') {
+        // For NEW metric or question nodes, position based on parent's CURRENT position
+        if ((newNode.type === 'metric' || newNode.type === 'question') && !existingNode) {
+          const nodeData = newNode.type === 'metric' ? 
+            metrics.find(m => m.id === newNode.id) : 
+            questions.find(q => q.id === newNode.id);
+          
+          if (nodeData && nodeData.parentId) {
+            const parentNode = currentNodes.find(n => n.id === nodeData.parentId);
+            if (parentNode) {
+              // Position 300px below parent's CURRENT position to avoid overlap
+              return {
+                ...newNode,
+                position: {
+                  x: newNode.position.x,
+                  y: parentNode.position.y + 300
+                }
+              };
+            }
+          }
+        }
+        
+        // For metric/question nodes, check if existing and preserve position
+        if (existingNode && (newNode.type === 'metric' || newNode.type === 'question')) {
           // Preserve position but use all other data from newNode (including updated callbacks)
           // Create a completely new object to ensure React Flow sees it as changed
           return { 
             id: newNode.id,
             type: newNode.type,
             position: existingNode.position,
-            data: { 
+            data: newNode.type === 'metric' ? { 
               ...newNode.data, // Fresh copy with all callbacks
               // Ensure these are fresh references
               metric: newNode.data.metric,
@@ -960,7 +979,7 @@ run: opportunity -> {
               onCreateServiceLineView: newNode.data.onCreateServiceLineView,
               hasTrendView: newNode.data.hasTrendView,
               hasServiceLineView: newNode.data.hasServiceLineView,
-            },
+            } : newNode.data,
             draggable: newNode.draggable,
           };
         }
