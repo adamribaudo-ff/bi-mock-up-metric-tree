@@ -1,0 +1,35 @@
+.question-node {
+  position: relative;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  border: 2px solid #8b5cf6;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  min-width: 300px;
+  max-width: 400px;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.question-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+}
+
+.question-text {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: white;
+}

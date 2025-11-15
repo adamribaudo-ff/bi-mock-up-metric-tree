@@ -12,7 +12,8 @@ export const useMetricTreeState = (currentPage, metrics) => {
   const [expandedMetrics, setExpandedMetrics] = useState(() => {
     const saved = loadState(currentPage, 'expandedMetrics', null);
     if (saved) return new Set(saved);
-    return new Set(metrics.length > 0 ? ['sales-pipeline'] : []);
+    // Default: no metrics expanded (collapsed state)
+    return new Set();
   });
 
   // Track which view nodes exist (trend and service line views)
@@ -33,6 +34,7 @@ export const useMetricTreeState = (currentPage, metrics) => {
   const [hiddenNodes, setHiddenNodes] = useState(() => {
     const saved = loadState(currentPage, 'hiddenNodes', null);
     if (saved) return new Set(saved);
+    // Default: start with no hidden nodes (all root questions visible, children collapsed via expandedMetrics)
     return new Set();
   });
 
@@ -47,7 +49,7 @@ export const useMetricTreeState = (currentPage, metrics) => {
     setExpandedMetrics(
       savedExpanded 
         ? new Set(savedExpanded)
-        : new Set(metrics.length > 0 ? ['sales-pipeline'] : [])
+        : new Set() // Default: no metrics expanded
     );
 
     const savedViewNodes = loadState(currentPage, 'viewNodes', null);
@@ -91,10 +93,10 @@ export const useMetricTreeState = (currentPage, metrics) => {
   // Reset all state to defaults
   const resetState = useCallback(() => {
     clearPageState(currentPage);
-    setExpandedMetrics(new Set(metrics.length > 0 ? ['sales-pipeline'] : []));
+    setExpandedMetrics(new Set()); // Default: no metrics expanded
     setViewNodes(new Map());
     setManuallyMovedViewNodes(new Set());
-    setHiddenNodes(new Set());
+    setHiddenNodes(new Set()); // No hidden nodes by default
     setSnapshotDate('2025-11');
   }, [currentPage, metrics.length]);
 

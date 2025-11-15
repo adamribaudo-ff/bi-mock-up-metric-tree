@@ -88,14 +88,13 @@ export const metrics = [
     unit: 'USD',
     mom: 4.8,
     yoy: 23.9,
-    parentId: null,
-    level: 1,
+    parentId: 'question-budget-variance',
     trendData: generateYearToDateData(2000000, 'up'),
     budgetGapData: generateBudgetGapData(), // Special data for stacked bar chart
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 600, y: 50 }
+    position: { x: 100, y: 300 }
   },
   {
     id: 'sales-pipeline',
@@ -105,7 +104,6 @@ export const metrics = [
     mom: 5.2,
     yoy: 18.5,
     parentId: 'budget-gap',
-    level: 2,
     trendData: generateYearToDateData(7000000, 'up'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
@@ -120,7 +118,6 @@ export const metrics = [
     mom: 1.3,
     yoy: 14.4,
     parentId: 'sales-pipeline',
-    level: 3,
     trendData: generateYearToDateData(35, 'up'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
@@ -135,7 +132,6 @@ export const metrics = [
     mom: -2.1,
     yoy: -8.5,
     parentId: 'sales-pipeline',
-    level: 3,
     trendData: generateYearToDateData(50, 'down'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
@@ -150,7 +146,6 @@ export const metrics = [
     mom: 3.7,
     yoy: 12.3,
     parentId: 'sales-pipeline',
-    level: 3,
     trendData: generateYearToDateData(110000, 'up'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
@@ -165,7 +160,6 @@ export const metrics = [
     mom: 3.9,
     yoy: 15.2,
     parentId: 'budget-gap',
-    level: 2,
     trendData: generateYearToDateData(5500000, 'up'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
@@ -179,13 +173,12 @@ export const metrics = [
     unit: 'USD',
     mom: 5.1,
     yoy: 22.4,
-    parentId: 'secured-revenue',
-    level: 3,
+    parentId: 'question-new-logo',
     trendData: generateYearToDateData(2500000, 'up'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 500, y: 550 }
+    position: { x: 500, y: 350 }
   },
   {
     id: 'client-retention-rate',
@@ -195,12 +188,39 @@ export const metrics = [
     mom: 0.8,
     yoy: 5.2,
     parentId: 'secured-revenue',
-    level: 3,
     trendData: generateYearToDateData(82, 'up'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
     position: { x: 700, y: 550 }
+  },
+  {
+    id: 'new-logo-churn-rate',
+    name: 'New Logo Churn Rate',
+    currentValue: 12.3,
+    unit: '%',
+    mom: -1.2,
+    yoy: -3.5,
+    parentId: 'new-logo-revenue',
+    trendData: generateYearToDateData(15, 'down'),
+    serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
+    position: { x: 500, y: 500 }
+  },
+  {
+    id: 'churned-client-revenue',
+    name: 'Churned Client Revenue',
+    currentValue: 1850000,
+    unit: 'USD',
+    mom: 2.3,
+    yoy: -4.1,
+    parentId: 'question-churned-client',
+    trendData: generateYearToDateData(1950000, 'down'),
+    serviceLineData: generateServiceLineData(),
+    businessUnitData: generateBusinessUnitData(),
+    accountPortfolioData: generateAccountPortfolioData(),
+    position: { x: 900, y: 500 }
   },
   {
     id: 'capacity',
@@ -210,7 +230,6 @@ export const metrics = [
     mom: 2.6,
     yoy: 3.9,
     parentId: 'budget-gap',
-    level: 2,
     trendData: generateYearToDateData(1150, 'up'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
@@ -225,7 +244,6 @@ export const metrics = [
     mom: 2.1,
     yoy: 4.2,
     parentId: 'capacity',
-    level: 3,
     trendData: generateYearToDateData(230, 'up'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
@@ -240,7 +258,6 @@ export const metrics = [
     mom: 3.2,
     yoy: 5.1,
     parentId: 'capacity',
-    level: 3,
     trendData: generateYearToDateData(300, 'up'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
@@ -255,7 +272,6 @@ export const metrics = [
     mom: 1.8,
     yoy: 3.5,
     parentId: 'capacity',
-    level: 3,
     trendData: generateYearToDateData(170, 'up'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
@@ -270,7 +286,6 @@ export const metrics = [
     mom: 2.9,
     yoy: 4.8,
     parentId: 'capacity',
-    level: 3,
     trendData: generateYearToDateData(265, 'up'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
@@ -285,7 +300,6 @@ export const metrics = [
     mom: 1.5,
     yoy: 2.9,
     parentId: 'capacity',
-    level: 3,
     trendData: generateYearToDateData(175, 'up'),
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
@@ -324,5 +338,39 @@ export const getChildren = (metricId) => {
 // Helper function to get metric by ID
 export const getMetricById = (id) => {
   return metrics.find(m => m.id === id);
+};
+
+// Questions that organize the metric hierarchy
+export const questions = [
+  {
+    id: 'question-budget-variance',
+    text: 'How are we doing against our budget? What is driving the variance?',
+    parentId: null,
+    position: { x: 100, y: 50 },
+  },
+  {
+    id: 'question-new-logo',
+    text: 'Is new logo revenue in line with past years?',
+    parentId: 'question-budget-variance',
+    position: { x: 700, y: 200 },
+  },
+  {
+    id: 'question-churned-client',
+    text: 'How much revenue do we need to cycle from lost clients?',
+    parentId: 'question-new-logo',
+    position: { x: 900, y: 350 },
+  },
+];
+
+// Helper function to get children of any node (question or metric)
+export const getNodeChildren = (nodeId) => {
+  const metricChildren = metrics.filter(m => m.parentId === nodeId);
+  const questionChildren = questions.filter(q => q.parentId === nodeId);
+  return [...questionChildren, ...metricChildren];
+};
+
+// Helper function to get question by ID
+export const getQuestionById = (id) => {
+  return questions.find(q => q.id === id);
 };
 
