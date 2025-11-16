@@ -1,15 +1,23 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MetricTree from './components/MetricTree';
 import Header from './components/Header';
+import RightShelf from './components/RightShelf';
 import { PageProvider } from './context/PageContext';
+import { MetricTreeProvider } from './context/MetricTreeContext';
+import { SelectedMetricProvider } from './context/SelectedMetricContext';
 import './App.css';
 
 function AppContent() {
   return (
-    <div className="app">
-      <Header />
-      <MetricTree />
-    </div>
+    <MetricTreeProvider>
+      <SelectedMetricProvider>
+        <div className="app">
+          <Header />
+          <MetricTree />
+          <RightShelf />
+        </div>
+      </SelectedMetricProvider>
+    </MetricTreeProvider>
   );
 }
 

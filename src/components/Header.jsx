@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePage } from '../context/PageContext';
+import { useMetricTree } from '../context/MetricTreeContext';
 import './Header.css';
 
 const Header = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { currentPage, pages, getCurrentPageTitle } = usePage();
+  const { resetMetrics } = useMetricTree();
   const navigate = useNavigate();
 
   const toggleSidebar = () => {
@@ -28,6 +30,9 @@ const Header = () => {
         <div className="page-title-control">
           <h1 className="page-title">{getCurrentPageTitle()}</h1>
         </div>
+        <button className="reset-metrics-btn" onClick={resetMetrics} title="Reset metrics to defaults">
+          Reset
+        </button>
       </div>
       
       <div className={`sidebar-overlay ${isSidebarOpen ? 'open' : ''}`} onClick={toggleSidebar}></div>

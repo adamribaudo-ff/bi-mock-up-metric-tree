@@ -21,6 +21,8 @@ import MetricEdge from './MetricEdge';
 import { getMetricsForPage } from '../data/pageMetrics';
 import { getNodeChildren, questions } from '../data/metrics';
 import { usePage } from '../context/PageContext';
+import { useMetricTree } from '../context/MetricTreeContext';
+import { useSelectedMetric } from '../context/SelectedMetricContext';
 import { useMetricTreeState } from '../hooks/useMetricTreeState';
 import { useViewNodeManager } from '../hooks/useViewNodeManager';
 import { calculateNodePositions } from '../utils/layoutCalculations';
@@ -41,6 +43,8 @@ const edgeTypes = {
 
 const MetricTree = () => {
   const { currentPage } = usePage();
+  const { registerResetCallback } = useMetricTree();
+  const { setSelectedMetric, isShelfOpen, setShelfOpen } = useSelectedMetric();
   const metrics = getMetricsForPage(currentPage);
   
   // Use custom hooks for state management
@@ -236,6 +240,10 @@ const MetricTree = () => {
           },
           hasTrendView: !!viewNodeInfo.trendViewId,
           hasServiceLineView: !!viewNodeInfo.serviceLineViewId,
+          onInspect: () => {
+            setSelectedMetric(metric);
+            setShelfOpen(true);
+          },
         },
         draggable: true,
       };
@@ -1079,6 +1087,11 @@ run: opportunity -> {
     }, 200);
   }, [metrics, resetState, setNodes]);
 
+  // Register resetView callback with context
+  useEffect(() => {
+    registerResetCallback(resetView);
+  }, [registerResetCallback, resetView]);
+
   // Restore flow state on initial load using React Flow's toObject() format
   useEffect(() => {
     const state = loadFullState(currentPage);
@@ -1114,26 +1127,6 @@ run: opportunity -> {
 
   return (
     <div className="metric-tree-container">
-      <div className="snapshot-date-control">
-        <button className="reset-view-btn" onClick={resetView} title="Reset metrics to defaults">
-          🔄 Reset Metrics
-        </button>
-        <label htmlFor="snapshot-date-select" className="snapshot-date-label">
-          Snapshot Date:
-        </label>
-        <select
-          id="snapshot-date-select"
-          className="snapshot-date-select"
-          value={snapshotDate}
-          onChange={(e) => setSnapshotDate(e.target.value)}
-        >
-          {snapshotDateOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -1159,15 +1152,6 @@ run: opportunity -> {
           gap={20} 
           size={1}
           color="rgba(174, 83, 186, 0.2)"
-        />
-        <Controls />
-        <MiniMap
-          nodeColor={(node) => {
-            if (node.type === 'question') return '#7c3aed';
-            if (node.type === 'metric') return '#ae53ba';
-            return '#2a8af6';
-          }}
-          maskColor="rgba(10, 14, 39, 0.5)"
         />
         <svg>
           <defs>

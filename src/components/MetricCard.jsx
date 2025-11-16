@@ -3,7 +3,7 @@ import { formatValue } from '../data/metrics';
 import { getMetricDefinition } from '../data/metricDefinitions';
 import './MetricCard.css';
 
-const MetricCard = ({ metric, isExpanded, onToggleExpand, onCreateTrendView, onCreateServiceLineView, hasTrendView, hasServiceLineView, showAIPrompt }) => {
+const MetricCard = ({ metric, isExpanded, onToggleExpand, onCreateTrendView, onCreateServiceLineView, hasTrendView, hasServiceLineView, onInspect }) => {
   const promptRef = useRef(null);
 
   const formatNumber = (num) => {
@@ -15,21 +15,22 @@ const MetricCard = ({ metric, isExpanded, onToggleExpand, onCreateTrendView, onC
     <div className="metric-card">
       <div className="metric-card-header">
         <h3 className="metric-name">{metric.name}</h3>
+        {onInspect && (
+          <button 
+            className="inspect-btn" 
+            onClick={(e) => {
+              e.stopPropagation();
+              onInspect();
+            }}
+            title="Inspect metric"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+          </button>
+        )}
       </div>
-
-      {showAIPrompt && (
-        <div className="ai-prompt" ref={promptRef}>
-          <div className="ai-prompt-definition">
-            {getMetricDefinition(metric.id)}
-          </div>
-          <input 
-            type="text" 
-            placeholder="Ask questions about this metric..."
-            autoFocus
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
 
       <div className="metric-content">
         <div className="metric-view">

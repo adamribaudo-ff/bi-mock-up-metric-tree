@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import React from 'react';
 import { Handle, Position, NodeToolbar } from '@xyflow/react';
 import MetricCard from './MetricCard';
 import './MetricNode.css';
 
-const MetricNode = ({ data, selected }) => {
+const MetricNode = ({ data, selected, id }) => {
   return (
     <div className="metric-node">
-      {/* Right toolbar for chart button */}
-      <NodeToolbar isVisible={selected} position={Position.Right} className="metric-node-toolbar">
+      {/* Right toolbar for chart button - hidden when selected */}
+      {!selected && (
+        <NodeToolbar isVisible={selected} position={Position.Right} className="metric-node-toolbar">
         <button
           className={`toolbar-btn ${(data.hasTrendView && data.hasServiceLineView) ? 'active' : ''}`}
           onClick={(e) => {
@@ -36,6 +37,7 @@ const MetricNode = ({ data, selected }) => {
           📊
         </button>
       </NodeToolbar>
+      )}
       {/* Source handle at top to connect to parent */}
       <Handle
         type="source"
@@ -50,7 +52,7 @@ const MetricNode = ({ data, selected }) => {
         onCreateServiceLineView={data.onCreateServiceLineView}
         hasTrendView={data.hasTrendView}
         hasServiceLineView={data.hasServiceLineView}
-        showAIPrompt={selected}
+        onInspect={data.onInspect}
       />
       {/* Bottom toolbar for expand/collapse */}
       {data.onToggleExpand && !data.allChildrenVisible && (
