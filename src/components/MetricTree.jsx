@@ -50,7 +50,7 @@ const edgeTypes = {
   metricEdge: MetricEdge,
 };
 
-const MetricTree = () => {
+const MetricTree = ({ selectedMetricFromAutocomplete }) => {
   const { currentPage } = usePage();
   const { registerResetCallback } = useMetricTree();
   const { setCardDropped } = useSelectedMetric();
@@ -88,6 +88,120 @@ const MetricTree = () => {
     setViewNodes,
     setManuallyMovedViewNodes,
   });
+
+  // Helper function to generate metric data for new metrics
+  const generateMetricData = useCallback((metricName) => {
+    // Generate random but realistic values
+    const baseValue = Math.floor(Math.random() * 5000000) + 100000;
+    const mom = (Math.random() - 0.5) * 20; // -10% to +10%
+    const yoy = (Math.random() - 0.3) * 40; // -12% to +28%
+    
+    // Determine unit based on metric name
+    let unit = 'USD';
+    if (metricName.toLowerCase().includes('count') || metricName.toLowerCase().includes('rate')) {
+      unit = 'number';
+    } else if (metricName.toLowerCase().includes('hours') || metricName.toLowerCase().includes('capacity')) {
+      unit = 'hours';
+    } else if (metricName.toLowerCase().includes('percent')) {
+      unit = 'percentage';
+    }
+    
+    return {
+      id: `metric-${Date.now()}`,
+      name: metricName,
+      currentValue: unit === 'percentage' ? Math.random() * 100 : baseValue,
+      unit,
+      mom,
+      yoy,
+      position: { x: 200, y: 200 }, // Default position
+      trendData: generateYearToDateData(baseValue, mom > 0 ? 'up' : 'down'),
+    };
+  }, []);
+  
+  // Helper function to generate year-to-date data
+  const generateYearToDateData = (startValue, trend = 'up') => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'];
+    const data = [];
+    let currentValue = startValue;
+    
+    months.forEach((month, index) => {
+      const variation = (Math.random() - 0.5) * 0.1;
+      if (trend === 'up') {
+        currentValue = currentValue * (1 + 0.02 + variation);
+      } else if (trend === 'down') {
+        currentValue = currentValue * (1 - 0.01 + variation);
+      } else {
+        currentValue = currentValue * (1 + variation);
+      }
+      data.push({ month, value: Math.round(currentValue * 100) / 100 });
+    });
+    
+    return data;
+  };
+
+  // Handle metric selection from autocomplete
+  useEffect(() => {
+    if (!selectedMetricFromAutocomplete || !reactFlowWrapper.current) return;
+    
+    // Capture viewport BEFORE making changes
+    const currentViewport = reactFlowInstance.current?.getViewport();
+    
+    const metricData = generateMetricData(selectedMetricFromAutocomplete.name);
+    
+    // Get viewport center
+    const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
+    const viewport = reactFlowInstance.current?.getViewport() || { x: 0, y: 0, zoom: 1 };
+    
+    // Calculate center position in flow coordinates
+    const centerX = (reactFlowBounds.width / 2 - viewport.x) / viewport.zoom;
+    const centerY = (reactFlowBounds.height / 2 - viewport.y) / viewport.zoom;
+    
+    // Create a regular metric node (like the startup cards)
+    const nodeId = `metric-${selectedMetricFromAutocomplete.timestamp}`;
+    const newNode = {
+      id: nodeId,
+      type: 'metric',
+      position: { x: centerX - 140, y: centerY - 140 }, // Center the node (metric card is ~280x280)
+      data: {
+        metric: metricData,
+        isExpanded: false,
+        allChildrenVisible: false,
+        onToggleExpand: null, // No children for user-created metrics
+        onCreateTrendView: () => {
+          const currentViewInfo = viewNodes.get(nodeId) || {};
+          if (currentViewInfo.trendViewId) {
+            removeViewNode(nodeId, 'trend');
+          } else {
+            createViewNode(nodeId, 'trend');
+          }
+        },
+        onCreateServiceLineView: () => {
+          const currentViewInfo = viewNodes.get(nodeId) || {};
+          if (currentViewInfo.serviceLineViewId) {
+            removeViewNode(nodeId, 'serviceLine');
+          } else {
+            createViewNode(nodeId, 'serviceLine');
+          }
+        },
+        hasTrendView: false,
+        hasServiceLineView: false,
+        onInspect: () => {
+          setSelectedMetric(metricData);
+          setShelfOpen(true);
+        },
+      },
+      draggable: true,
+    };
+    
+    setNodes((nds) => [...nds, newNode]);
+    
+    // Restore viewport after adding node
+    if (currentViewport) {
+      setTimeout(() => {
+        reactFlowInstance.current?.setViewport(currentViewport);
+      }, 0);
+    }
+  }, [selectedMetricFromAutocomplete, generateMetricData, viewNodes, createViewNode, removeViewNode, setSelectedMetric, setShelfOpen]);
   
   // Generate month/year options going back 24 months
   const snapshotDateOptions = useMemo(() => {
