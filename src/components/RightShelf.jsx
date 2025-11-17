@@ -4,6 +4,7 @@ import MetricDetail from './MetricDetail';
 import TrendCard from './TrendCard';
 import BreakdownCard from './BreakdownCard';
 import CombinedCard from './CombinedCard';
+import DraggableCard from './DraggableCard';
 import './RightShelf.css';
 
 // Separate trend button component
@@ -25,7 +26,7 @@ const TrendButtonSeparate = ({ metric, isFromBreakdown = false, breakdownType = 
           <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
           <polyline points="17 6 23 6 23 12"></polyline>
         </svg>
-        <span>{isFromBreakdown ? 'View Breakdown Trend' : 'View Trend'}</span>
+        <span>View Trend</span>
       </button>
     </div>
   );
@@ -63,7 +64,7 @@ const BreakdownButtonSeparate = ({ metric, isFromTrend = false }) => {
           <rect x="7" y="7" width="3" height="9"></rect>
           <rect x="14" y="7" width="3" height="5"></rect>
         </svg>
-        <span>{isFromTrend ? 'View Breakdown Trend' : 'View Breakdown'}</span>
+        <span>View Breakdown</span>
         <svg 
           width="12" 
           height="12" 
@@ -97,7 +98,16 @@ const BreakdownButtonSeparate = ({ metric, isFromTrend = false }) => {
 const RightShelf = () => {
   const [width, setWidth] = useState(400);
   const [isResizing, setIsResizing] = useState(false);
-  const { metricHistory, clearHistory, removeFromHistory, isShelfOpen, setShelfOpen } = useSelectedMetric();
+  const { 
+    metricHistory, 
+    clearHistory, 
+    removeFromHistory, 
+    isShelfOpen, 
+    setShelfOpen, 
+    draggedCards, 
+    droppedCards, 
+    setCardDragging 
+  } = useSelectedMetric();
   const shelfRef = useRef(null);
 
   const toggleShelf = () => {
@@ -187,12 +197,15 @@ const RightShelf = () => {
             </div>
           ) : (
             <div className="metric-history">
-              {metricHistory.map((item, index) => {
+              {metricHistory
+                .filter(item => !droppedCards.has(item.timestamp))
+                .map((item, index) => {
                 const isTopCard = index === 0;
                 const showButtons = isTopCard && (item.type === 'metric' || item.type === 'trend' || item.type === 'breakdown');
+                const isDragging = draggedCards.has(item.timestamp);
                 
                 return (
-                  <div key={`${item.id}-${item.timestamp}`} className="metric-history-item">
+                  <div key={`${item.id}-${item.timestamp}`} className={`metric-history-item ${isDragging ? 'dragging-placeholder' : ''}`}>
                     {showButtons && (
                       <div className="top-buttons-container">
                         {item.type === 'metric' && (
@@ -220,13 +233,55 @@ const RightShelf = () => {
                         </svg>
                       </button>
                       {item.type === 'trend' ? (
-                        <TrendCard metric={item} />
+                        <DraggableCard 
+                          dragData={{
+                            cardType: 'TrendCard',
+                            metric: item,
+                            timestamp: item.timestamp
+                          }}
+                          onDragStart={() => setCardDragging(item.timestamp, true)}
+                          onDragEnd={() => setCardDragging(item.timestamp, false)}
+                        >
+                          <TrendCard metric={item} />
+                        </DraggableCard>
                       ) : item.type === 'breakdown' ? (
-                        <BreakdownCard metric={item} breakdownType={item.breakdownType} />
+                        <DraggableCard 
+                          dragData={{
+                            cardType: 'BreakdownCard',
+                            metric: item,
+                            breakdownType: item.breakdownType,
+                            timestamp: item.timestamp
+                          }}
+                          onDragStart={() => setCardDragging(item.timestamp, true)}
+                          onDragEnd={() => setCardDragging(item.timestamp, false)}
+                        >
+                          <BreakdownCard metric={item} breakdownType={item.breakdownType} />
+                        </DraggableCard>
                       ) : item.type === 'combined' ? (
-                        <CombinedCard metric={item} breakdownType={item.breakdownType} />
+                        <DraggableCard 
+                          dragData={{
+                            cardType: 'CombinedCard',
+                            metric: item,
+                            breakdownType: item.breakdownType,
+                            timestamp: item.timestamp
+                          }}
+                          onDragStart={() => setCardDragging(item.timestamp, true)}
+                          onDragEnd={() => setCardDragging(item.timestamp, false)}
+                        >
+                          <CombinedCard metric={item} breakdownType={item.breakdownType} />
+                        </DraggableCard>
                       ) : (
-                        <MetricDetail metric={item} showTrendButton={false} />
+                        <DraggableCard 
+                          dragData={{
+                            cardType: 'MetricDetail',
+                            metric: item,
+                            timestamp: item.timestamp
+                          }}
+                          onDragStart={() => setCardDragging(item.timestamp, true)}
+                          onDragEnd={() => setCardDragging(item.timestamp, false)}
+                        >
+                          <MetricDetail metric={item} showTrendButton={false} />
+                        </DraggableCard>
                       )}
                     </div>
                   </div>

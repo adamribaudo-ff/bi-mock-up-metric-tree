@@ -1,9 +1,10 @@
+import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import './TrendCard.css';
 
-const TrendCard = ({ metric }) => {
-  // Generate fake data for January to October
-  const trendData = [
+const TrendCard = ({ metric, chartHeight }) => {
+  // Generate fake data for January to October - memoized to prevent recalculation
+  const trendData = useMemo(() => [
     { month: 'Jan', value: metric.currentValue * 0.85 },
     { month: 'Feb', value: metric.currentValue * 0.92 },
     { month: 'Mar', value: metric.currentValue * 0.88 },
@@ -14,7 +15,7 @@ const TrendCard = ({ metric }) => {
     { month: 'Aug', value: metric.currentValue * 0.98 },
     { month: 'Sep', value: metric.currentValue * 0.96 },
     { month: 'Oct', value: metric.currentValue }
-  ];
+  ], [metric.currentValue]);
 
   const formatValue = (value) => {
     if (metric.unit === '$') {
@@ -48,7 +49,7 @@ const TrendCard = ({ metric }) => {
       </div>
       
       <div className="trend-chart-container">
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={chartHeight || 200}>
           <LineChart
             data={trendData}
             margin={{

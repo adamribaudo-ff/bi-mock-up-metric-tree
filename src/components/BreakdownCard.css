@@ -12,6 +12,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .breakdown-card-title {
@@ -25,6 +26,7 @@
 .breakdown-chart-container {
   width: 100%;
   height: 250px;
+  flex: 1;
 }
 
 .breakdown-tooltip {

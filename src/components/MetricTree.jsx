@@ -10,6 +10,7 @@ import {
   addEdge,
   NodeToolbar,
   Position,
+  useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import MetricNode from './MetricNode';
@@ -18,6 +19,10 @@ import ServiceLineViewNode from './ServiceLineViewNode';
 import MalloyChartNode from './MalloyChartNode';
 import QuestionNode from './QuestionNode';
 import MetricEdge from './MetricEdge';
+import CanvasMetricDetailNode from './CanvasMetricDetailNode';
+import CanvasTrendNode from './CanvasTrendNode';
+import CanvasBreakdownNode from './CanvasBreakdownNode';
+import CanvasCombinedNode from './CanvasCombinedNode';
 import { getMetricsForPage } from '../data/pageMetrics';
 import { getNodeChildren, questions } from '../data/metrics';
 import { usePage } from '../context/PageContext';
@@ -25,7 +30,7 @@ import { useMetricTree } from '../context/MetricTreeContext';
 import { useSelectedMetric } from '../context/SelectedMetricContext';
 import { useMetricTreeState } from '../hooks/useMetricTreeState';
 import { useViewNodeManager } from '../hooks/useViewNodeManager';
-import { calculateNodePositions } from '../utils/layoutCalculations';
+import { calculateNodePositions, relativeToAbsolute, absoluteToRelative, calculateDefaultChildRelativePositions } from '../utils/layoutCalculations';
 import { saveFullState, loadFullState } from '../utils/storage';
 import './MetricTree.css';
 
@@ -35,6 +40,10 @@ const nodeTypes = {
   serviceLineView: ServiceLineViewNode,
   malloyChart: MalloyChartNode,
   question: QuestionNode,
+  'canvas-metric-detail': CanvasMetricDetailNode,
+  'canvas-trend': CanvasTrendNode,
+  'canvas-breakdown': CanvasBreakdownNode,
+  'canvas-combined': CanvasCombinedNode,
 };
 
 const edgeTypes = {
@@ -44,8 +53,11 @@ const edgeTypes = {
 const MetricTree = () => {
   const { currentPage } = usePage();
   const { registerResetCallback } = useMetricTree();
+  const { setCardDropped } = useSelectedMetric();
   const { setSelectedMetric, isShelfOpen, setShelfOpen } = useSelectedMetric();
   const metrics = getMetricsForPage(currentPage);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const reactFlowWrapper = useRef(null);
   
   // Use custom hooks for state management
   const {
@@ -53,11 +65,13 @@ const MetricTree = () => {
     viewNodes,
     manuallyMovedViewNodes,
     hiddenNodes,
+    childRelativePositions,
     snapshotDate,
     setExpandedMetrics,
     setViewNodes,
     setManuallyMovedViewNodes,
     setHiddenNodes,
+    setChildRelativePositions,
     setSnapshotDate,
     resetState,
   } = useMetricTreeState(currentPage, metrics);
@@ -154,6 +168,54 @@ const MetricTree = () => {
     });
   }, []);
 
+  // Calculate absolute position for a node based on its parent's current position
+  const calculateAbsolutePosition = useCallback((node, allCurrentNodes) => {
+    // If node has no parent, use its absolute position directly
+    if (!node.parentId) {
+      return node.position;
+    }
+    
+    // Check if we have a saved relative position for this node
+    const savedRelativePos = childRelativePositions.get(node.id);
+    
+    // If we have a saved relative position, use it
+    if (savedRelativePos) {
+      // Find parent's current position from allCurrentNodes or from the metric/question data
+      const parentNode = allCurrentNodes.find(n => n.id === node.parentId);
+      if (parentNode) {
+        return relativeToAbsolute(parentNode.position, savedRelativePos);
+      }
+      
+      // If parent not in current nodes, find it in metrics/questions
+      const parentMetric = metrics.find(m => m.id === node.parentId);
+      const parentQuestion = questions.find(q => q.id === node.parentId);
+      const parent = parentMetric || parentQuestion;
+      if (parent) {
+        return relativeToAbsolute(parent.position, savedRelativePos);
+      }
+    }
+    
+    // If no saved relative position, use the default relative position from the data
+    if (node.relativePosition) {
+      // Find parent's current position
+      const parentNode = allCurrentNodes.find(n => n.id === node.parentId);
+      if (parentNode) {
+        return relativeToAbsolute(parentNode.position, node.relativePosition);
+      }
+      
+      // If parent not in current nodes, find it in metrics/questions
+      const parentMetric = metrics.find(m => m.id === node.parentId);
+      const parentQuestion = questions.find(q => q.id === node.parentId);
+      const parent = parentMetric || parentQuestion;
+      if (parent) {
+        return relativeToAbsolute(parent.position, node.relativePosition);
+      }
+    }
+    
+    // Fall back to absolute position if no relative position is available
+    return node.position;
+  }, [childRelativePositions, metrics]);
+
   // Recursively check if a node should be visible based on ancestor expansion
   const isNodeVisible = useCallback((nodeId, parentId) => {
     // Check if node is explicitly hidden
@@ -195,10 +257,47 @@ const MetricTree = () => {
     return questions.filter((question) => isNodeVisible(question.id, question.parentId));
   }, [currentPage, isNodeVisible]);
 
-  // Convert visible metrics to React Flow nodes with auto-layout
+  // Convert visible metrics to React Flow nodes with calculated positions
   const initialNodes = useMemo(() => {
+    // First pass: create a temporary nodes array to calculate positions
+    const tempNodes = [];
+    
+    // Add root-level nodes first (questions and metrics without parents or with question parents)
+    visibleQuestions.forEach((question) => {
+      tempNodes.push({
+        id: question.id,
+        type: 'question',
+        position: question.position,
+      });
+    });
+    
+    visibleMetrics.forEach((metric) => {
+      if (!metric.parentId || questions.some(q => q.id === metric.parentId)) {
+        // Root metric or child of question - use absolute position
+        tempNodes.push({
+          id: metric.id,
+          type: 'metric',
+          position: calculateAbsolutePosition(metric, tempNodes),
+        });
+      }
+    });
+    
+    // Add child metrics with calculated positions
+    visibleMetrics.forEach((metric) => {
+      if (metric.parentId && !questions.some(q => q.id === metric.parentId)) {
+        // Child of another metric - calculate position relative to parent
+        tempNodes.push({
+          id: metric.id,
+          type: 'metric',
+          position: calculateAbsolutePosition(metric, tempNodes),
+        });
+      }
+    });
+    
+    // Second pass: create actual nodes with all data
     const nodes = visibleMetrics.map((metric) => {
-      const position = metric.position;
+      const tempNode = tempNodes.find(n => n.id === metric.id);
+      const position = tempNode ? tempNode.position : metric.position;
       const viewNodeInfo = viewNodes.get(metric.id) || {};
       
       // Check if all children are visible
@@ -250,7 +349,7 @@ const MetricTree = () => {
     });
     
     return nodes;
-  }, [visibleMetrics, visibleQuestions, expandedMetrics, toggleExpansion, viewNodes, createViewNode, removeViewNode]);
+  }, [visibleMetrics, visibleQuestions, expandedMetrics, toggleExpansion, viewNodes, createViewNode, removeViewNode, calculateAbsolutePosition, childRelativePositions]);
 
   // Create edges - parent to child direction (parent bottom -> child top)
   const initialEdges = useMemo(() => {
@@ -658,6 +757,26 @@ run: opportunity -> {
 
   // Handle node drag stop - save position for view nodes and auto-save state
   const handleNodeDragStop = useCallback((event, node) => {
+    // If it's a metric or question node with a parent, save its relative position
+    if ((node.type === 'metric' || node.type === 'question') && node.data?.metric?.parentId) {
+      const parentId = node.data.metric.parentId;
+      
+      // Find parent node to calculate relative position
+      const currentNodes = reactFlowInstance.current?.getNodes() || [];
+      const parentNode = currentNodes.find(n => n.id === parentId);
+      
+      if (parentNode) {
+        const relativePos = absoluteToRelative(parentNode.position, node.position);
+        
+        // Save the relative position
+        setChildRelativePositions((prev) => {
+          const next = new Map(prev);
+          next.set(node.id, relativePos);
+          return next;
+        });
+      }
+    }
+    
     // If it's a view node, save its position to viewNodes state
     if (node.type === 'trendView' || node.type === 'serviceLineView') {
       if (node.data?.onPositionChange) {
@@ -710,7 +829,7 @@ run: opportunity -> {
     setTimeout(() => {
       autoSaveState();
     }, 100);
-  }, [autoSaveState, setEdges]);
+  }, [autoSaveState, setEdges, setChildRelativePositions]);
 
   // Update view node positions relative to their metric cards only if they haven't been manually moved
   useEffect(() => {
@@ -845,6 +964,9 @@ run: opportunity -> {
     // Force update nodes when allNodes changes
     // Use the latest allNodes directly to ensure we have fresh data
     setNodes((currentNodes) => {
+      // Separate canvas nodes from other nodes
+      const canvasNodes = currentNodes.filter(n => n.type?.startsWith('canvas-'));
+      
       // Start with all new nodes from allNodes (which is already up-to-date from the closure)
       // Map over allNodes to preserve all node data including fresh callbacks
       const updatedNodes = allNodes.map(newNode => {
@@ -995,8 +1117,11 @@ run: opportunity -> {
         return { ...newNode };
       });
 
-      // Return only the updated nodes (this removes any nodes that are no longer in allNodes)
-      return updatedNodes;
+      // Add canvas nodes back to preserve them during structure updates
+      const combinedNodes = [...updatedNodes, ...canvasNodes];
+      
+      // Return the combined nodes (metric/view nodes + canvas nodes)
+      return combinedNodes;
     });
     
     // Restore viewport after node update to prevent zoom/pan shift
@@ -1040,6 +1165,126 @@ run: opportunity -> {
     (params) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
+
+  // Handle canvas drop events
+  const handleCanvasDrop = useCallback((e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    try {
+      const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
+      
+      if (!reactFlowInstance.current || !reactFlowWrapper.current) return;
+      
+      // Get drop position relative to the React Flow canvas
+      const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
+      const viewport = reactFlowInstance.current.getViewport();
+      
+      // Convert screen coordinates to flow coordinates accounting for zoom and pan
+      const position = {
+        x: (e.clientX - reactFlowBounds.left - viewport.x) / viewport.zoom,
+        y: (e.clientY - reactFlowBounds.top - viewport.y) / viewport.zoom,
+      };
+      
+      createCanvasNodeFromShelfCard(dragData, position);
+    } catch (error) {
+      console.error('Error handling drop:', error);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    // Only set isDragOver to false if we're leaving the drop zone entirely
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (
+      e.clientX < rect.left ||
+      e.clientX > rect.right ||
+      e.clientY < rect.top ||
+      e.clientY > rect.bottom
+    ) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  // Create canvas node from dropped shelf card
+  const createCanvasNodeFromShelfCard = useCallback((dragData, position) => {
+    const nodeId = `canvas-${dragData.cardType}-${Date.now()}`;
+    
+    // Map card types to canvas node types
+    const typeMapping = {
+      'MetricDetail': 'canvas-metric-detail',
+      'TrendCard': 'canvas-trend', 
+      'BreakdownCard': 'canvas-breakdown',
+      'CombinedCard': 'canvas-combined'
+    };
+    
+    const nodeType = typeMapping[dragData.cardType];
+    if (!nodeType) {
+      console.warn('Unknown card type:', dragData.cardType);
+      return;
+    }
+    
+    const newNode = {
+      id: nodeId,
+      type: nodeType,
+      position,
+      data: {
+        metric: dragData.metric,
+        breakdownType: dragData.breakdownType,
+        timestamp: dragData.timestamp,
+        onClose: () => {
+          setNodes((nds) => nds.filter((node) => node.id !== nodeId));
+        }
+      },
+      draggable: true,
+      resizable: true,
+      style: {
+        width: getNodeWidth(dragData.cardType),
+        height: getNodeHeight(dragData.cardType)
+      }
+    };
+    
+    setNodes((nds) => [...nds, newNode]);
+    
+    // Mark the card as dropped (permanently removed from shelf)
+    if (dragData.timestamp) {
+      setCardDropped(dragData.timestamp);
+    }
+  }, [setNodes, setCardDropped]);
+
+  // Get appropriate width for canvas nodes based on card type
+  const getNodeWidth = (cardType) => {
+    switch (cardType) {
+      case 'TrendCard':
+      case 'CombinedCard':
+        return 400;
+      case 'BreakdownCard':
+        return 380;
+      case 'MetricDetail':
+      default:
+        return 320;
+    }
+  };
+
+  // Get appropriate height for canvas nodes based on card type
+  const getNodeHeight = (cardType) => {
+    switch (cardType) {
+      case 'TrendCard':
+        return 300;
+      case 'CombinedCard':
+        return 400;
+      case 'BreakdownCard':
+        return 350;
+      case 'MetricDetail':
+      default:
+        return 200;
+    }
+  };
 
   // Reset metrics - clear saved state and reset to defaults (without changing zoom/pan)
   const resetView = useCallback(() => {
@@ -1126,7 +1371,13 @@ run: opportunity -> {
   }
 
   return (
-    <div className="metric-tree-container">
+    <div 
+      ref={reactFlowWrapper}
+      className={`metric-tree-container ${isDragOver ? 'drag-over' : ''}`}
+      onDrop={handleCanvasDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}

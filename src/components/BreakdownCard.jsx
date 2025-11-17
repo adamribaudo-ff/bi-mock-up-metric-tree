@@ -1,9 +1,10 @@
+import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import './BreakdownCard.css';
 
-const BreakdownCard = ({ metric, breakdownType }) => {
-  // Generate fake breakdown data based on type
-  const generateBreakdownData = () => {
+const BreakdownCard = ({ metric, breakdownType, chartHeight }) => {
+  // Generate fake breakdown data based on type - memoized to prevent recalculation
+  const breakdownData = useMemo(() => {
     const baseValue = metric.currentValue;
     
     switch (breakdownType) {
@@ -32,9 +33,7 @@ const BreakdownCard = ({ metric, breakdownType }) => {
       default:
         return [];
     }
-  };
-
-  const breakdownData = generateBreakdownData();
+  }, [metric.currentValue, breakdownType]);
 
   const formatValue = (value) => {
     if (metric.unit === '$') {
@@ -68,7 +67,7 @@ const BreakdownCard = ({ metric, breakdownType }) => {
       </div>
       
       <div className="breakdown-chart-container">
-        <ResponsiveContainer width="100%" height={250}>
+        <ResponsiveContainer width="100%" height={chartHeight || 250}>
           <BarChart
             data={breakdownData}
             margin={{

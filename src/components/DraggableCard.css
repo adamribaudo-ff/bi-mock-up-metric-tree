@@ -1,0 +1,25 @@
+.draggable-card {
+  cursor: grab;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+}
+
+.draggable-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(36, 71, 160, 0.15);
+}
+
+.draggable-card:active {
+  cursor: grabbing;
+}
+
+.draggable-card.dragging {
+  /* Remove visual transforms from the original element during drag */
+  /* The placeholder styling will be handled by the parent container */
+}
+
+/* Prevent text selection during drag */
+.draggable-card.dragging * {
+  pointer-events: none;
+  user-select: none;
+}

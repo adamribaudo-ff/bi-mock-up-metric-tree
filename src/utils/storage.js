@@ -53,7 +53,7 @@ export const saveState = (currentPage, key, value) => {
  * @param {string} currentPage - The current page ID
  */
 export const clearPageState = (currentPage) => {
-  const keys = ['fullState', 'expandedMetrics', 'viewNodes', 'manuallyMovedViewNodes', 'hiddenNodes', 'snapshotDate'];
+  const keys = ['fullState', 'expandedMetrics', 'viewNodes', 'manuallyMovedViewNodes', 'hiddenNodes', 'childRelativePositions', 'snapshotDate'];
   keys.forEach(key => {
     try {
       const storageKey = getStorageKey(currentPage, key);

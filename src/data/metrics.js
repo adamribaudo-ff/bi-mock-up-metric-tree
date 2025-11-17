@@ -94,7 +94,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 100, y: 300 }
+    position: { x: 100, y: 300 },
+    relativePosition: { x: 0, y: 250 } // Relative to question-budget-variance
   },
   {
     id: 'sales-pipeline',
@@ -108,7 +109,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 100, y: 450 }
+    position: { x: 100, y: 450 },
+    relativePosition: { x: -250, y: 300 } // Relative to budget-gap
   },
   {
     id: 'win-rate',
@@ -122,7 +124,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 50, y: 550 }
+    position: { x: 50, y: 550 },
+    relativePosition: { x: -320, y: 300 } // Relative to sales-pipeline
   },
   {
     id: 'time-to-close',
@@ -136,7 +139,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 300, y: 550 }
+    position: { x: 300, y: 550 },
+    relativePosition: { x: 0, y: 300 } // Relative to sales-pipeline
   },
   {
     id: 'avg-size-of-deal',
@@ -150,7 +154,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 550, y: 550 }
+    position: { x: 550, y: 550 },
+    relativePosition: { x: 320, y: 300 } // Relative to sales-pipeline
   },
   {
     id: 'secured-revenue',
@@ -164,7 +169,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 600, y: 450 }
+    position: { x: 600, y: 450 },
+    relativePosition: { x: 250, y: 300 } // Relative to budget-gap
   },
   {
     id: 'new-logo-revenue',
@@ -178,7 +184,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 500, y: 350 }
+    position: { x: 500, y: 350 },
+    relativePosition: { x: -200, y: 150 } // Relative to question-new-logo
   },
   {
     id: 'client-retention-rate',
@@ -192,7 +199,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 700, y: 550 }
+    position: { x: 700, y: 550 },
+    relativePosition: { x: 0, y: 300 } // Relative to secured-revenue
   },
   {
     id: 'new-logo-churn-rate',
@@ -206,7 +214,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 500, y: 500 }
+    position: { x: 500, y: 500 },
+    relativePosition: { x: 0, y: 150 } // Relative to new-logo-revenue
   },
   {
     id: 'churned-client-revenue',
@@ -220,7 +229,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 900, y: 500 }
+    position: { x: 900, y: 500 },
+    relativePosition: { x: 0, y: 150 } // Relative to question-churned-client
   },
   {
     id: 'capacity',
@@ -234,7 +244,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 1100, y: 450 }
+    position: { x: 1100, y: 450 },
+    relativePosition: { x: 750, y: 300 } // Relative to budget-gap
   },
   {
     id: 'capacity-project-management',
@@ -248,7 +259,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 900, y: 550 }
+    position: { x: 900, y: 550 },
+    relativePosition: { x: -320, y: 300 } // Relative to capacity
   },
   {
     id: 'capacity-engineering',
@@ -262,7 +274,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 1050, y: 550 }
+    position: { x: 1050, y: 550 },
+    relativePosition: { x: -160, y: 300 } // Relative to capacity
   },
   {
     id: 'capacity-design',
@@ -276,7 +289,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 1200, y: 550 }
+    position: { x: 1200, y: 550 },
+    relativePosition: { x: 0, y: 300 } // Relative to capacity
   },
   {
     id: 'capacity-sales',
@@ -290,7 +304,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 1350, y: 550 }
+    position: { x: 1350, y: 550 },
+    relativePosition: { x: 160, y: 300 } // Relative to capacity
   },
   {
     id: 'capacity-support',
@@ -304,7 +319,8 @@ export const metrics = [
     serviceLineData: generateServiceLineData(),
     businessUnitData: generateBusinessUnitData(),
     accountPortfolioData: generateAccountPortfolioData(),
-    position: { x: 1500, y: 550 }
+    position: { x: 1500, y: 550 },
+    relativePosition: { x: 320, y: 300 } // Relative to capacity
   }
 ];
 

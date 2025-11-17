@@ -38,6 +38,13 @@ export const useMetricTreeState = (currentPage, metrics) => {
     return new Set();
   });
 
+  // Track relative positions of child nodes (saved as Map<nodeId, {x, y}>)
+  const [childRelativePositions, setChildRelativePositions] = useState(() => {
+    const saved = loadState(currentPage, 'childRelativePositions', null);
+    if (saved) return new Map(saved);
+    return new Map();
+  });
+
   // Snapshot date state - default to November 2025
   const [snapshotDate, setSnapshotDate] = useState(() => {
     return loadState(currentPage, 'snapshotDate', '2025-11');
@@ -60,6 +67,9 @@ export const useMetricTreeState = (currentPage, metrics) => {
 
     const savedHidden = loadState(currentPage, 'hiddenNodes', null);
     setHiddenNodes(savedHidden ? new Set(savedHidden) : new Set());
+
+    const savedRelativePositions = loadState(currentPage, 'childRelativePositions', null);
+    setChildRelativePositions(savedRelativePositions ? new Map(savedRelativePositions) : new Map());
 
     const savedDate = loadState(currentPage, 'snapshotDate', '2025-11');
     setSnapshotDate(savedDate);
@@ -85,6 +95,11 @@ export const useMetricTreeState = (currentPage, metrics) => {
     saveState(currentPage, 'hiddenNodes', Array.from(hiddenNodes));
   }, [hiddenNodes, currentPage]);
 
+  // Auto-save childRelativePositions to localStorage
+  useEffect(() => {
+    saveState(currentPage, 'childRelativePositions', Array.from(childRelativePositions.entries()));
+  }, [childRelativePositions, currentPage]);
+
   // Auto-save snapshotDate to localStorage
   useEffect(() => {
     saveState(currentPage, 'snapshotDate', snapshotDate);
@@ -97,6 +112,7 @@ export const useMetricTreeState = (currentPage, metrics) => {
     setViewNodes(new Map());
     setManuallyMovedViewNodes(new Set());
     setHiddenNodes(new Set()); // No hidden nodes by default
+    setChildRelativePositions(new Map()); // Clear saved relative positions
     setSnapshotDate('2025-11');
   }, [currentPage, metrics.length]);
 
@@ -106,6 +122,7 @@ export const useMetricTreeState = (currentPage, metrics) => {
     viewNodes,
     manuallyMovedViewNodes,
     hiddenNodes,
+    childRelativePositions,
     snapshotDate,
 
     // Setters (for direct state updates)
@@ -113,6 +130,7 @@ export const useMetricTreeState = (currentPage, metrics) => {
     setViewNodes,
     setManuallyMovedViewNodes,
     setHiddenNodes,
+    setChildRelativePositions,
     setSnapshotDate,
 
     // Actions

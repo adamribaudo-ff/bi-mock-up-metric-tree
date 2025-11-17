@@ -14,6 +14,54 @@ export const LAYOUT_CONSTANTS = {
 };
 
 /**
+ * Calculate default relative positions for children nodes
+ * Evenly spaced and center-justified relative to parent
+ * @param {number} childCount - Number of children
+ * @param {number} verticalSpacing - Vertical distance from parent (default 300px)
+ * @returns {Array} Array of relative positions {x, y}
+ */
+export const calculateDefaultChildRelativePositions = (childCount, verticalSpacing = 300) => {
+  if (childCount === 0) return [];
+  if (childCount === 1) return [{ x: 0, y: verticalSpacing }];
+  
+  // Calculate horizontal spacing to center children
+  const horizontalSpacing = LAYOUT_CONSTANTS.HORIZONTAL_SPACING; // 320px between children
+  const totalWidth = (childCount - 1) * horizontalSpacing;
+  const startX = -totalWidth / 2; // Start position for center justification
+  
+  return Array.from({ length: childCount }, (_, index) => ({
+    x: startX + (index * horizontalSpacing),
+    y: verticalSpacing
+  }));
+};
+
+/**
+ * Convert relative position to absolute position
+ * @param {Object} parentPosition - Parent node position {x, y}
+ * @param {Object} relativePosition - Relative position {x, y}
+ * @returns {Object} Absolute position {x, y}
+ */
+export const relativeToAbsolute = (parentPosition, relativePosition) => {
+  return {
+    x: parentPosition.x + relativePosition.x,
+    y: parentPosition.y + relativePosition.y
+  };
+};
+
+/**
+ * Convert absolute position to relative position
+ * @param {Object} parentPosition - Parent node position {x, y}
+ * @param {Object} absolutePosition - Absolute position {x, y}
+ * @returns {Object} Relative position {x, y}
+ */
+export const absoluteToRelative = (parentPosition, absolutePosition) => {
+  return {
+    x: absolutePosition.x - parentPosition.x,
+    y: absolutePosition.y - parentPosition.y
+  };
+};
+
+/**
  * Check if two positions overlap
  * @param {Object} pos1 - First position {x, y}
  * @param {Object} pos2 - Second position {x, y}

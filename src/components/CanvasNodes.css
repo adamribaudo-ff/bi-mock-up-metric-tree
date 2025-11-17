@@ -1,0 +1,156 @@
+.canvas-node-wrapper {
+  background: white;
+  border-radius: 12px;
+  border: 2px solid rgba(209, 213, 219, 0.8);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  min-width: 280px;
+  transition: all 0.3s ease;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.canvas-node-wrapper:hover .canvas-node-close {
+  opacity: 1;
+}
+
+.canvas-node-wrapper:hover {
+  box-shadow: 0 12px 35px rgba(36, 71, 160, 0.2);
+  border-color: rgba(36, 71, 160, 0.3);
+}
+
+.canvas-node-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 100;
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
+  opacity: 0;
+}
+
+.canvas-node-close:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.canvas-node-content {
+  padding: 0;
+  height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Specific sizing for different node types */
+.canvas-metric-detail {
+  min-width: 320px;
+  min-height: 200px;
+}
+
+.canvas-trend,
+.canvas-combined {
+  min-width: 400px;
+  min-height: 300px;
+}
+
+.canvas-breakdown {
+  min-width: 380px;
+  min-height: 300px;
+}
+
+/* Handle styling */
+.canvas-node-handle {
+  width: 12px;
+  height: 12px;
+  background: #2447A0;
+  border: 2px solid white;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.canvas-node-handle:hover {
+  background: #1e3a8a;
+  transform: scale(1.2);
+  box-shadow: 0 0 0 4px rgba(36, 71, 160, 0.2);
+}
+
+/* Remove default node styling and set height for canvas cards */
+.canvas-node-wrapper .metric-detail-card,
+.canvas-node-wrapper .trend-card,
+.canvas-node-wrapper .breakdown-card,
+.canvas-node-wrapper .combined-card {
+  border: none;
+  box-shadow: none;
+  margin: 0;
+  border-radius: 0;
+  height: 100%;
+}
+
+/* Ensure proper cursor on draggable nodes */
+.react-flow__node[data-type*="canvas-"] {
+  cursor: grab;
+}
+
+.react-flow__node[data-type*="canvas-"]:active {
+  cursor: grabbing;
+}
+
+/* Animation for newly dropped nodes */
+@keyframes nodeAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.8) rotate(-5deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.canvas-node-wrapper {
+  animation: nodeAppear 0.3s ease-out;
+}
+
+/* Resize handle styling */
+.react-flow__resize-control.handle {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: #2447A0;
+  border: 2px solid white;
+}
+
+.react-flow__resize-control.handle:hover {
+  background: #1e3a8a;
+  transform: scale(1.2);
+}
+
+/* Style the resize handles to be more visible */
+.react-flow__node-canvas-metric-detail .react-flow__resize-control,
+.react-flow__node-canvas-trend .react-flow__resize-control,
+.react-flow__node-canvas-breakdown .react-flow__resize-control,
+.react-flow__node-canvas-combined .react-flow__resize-control {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.react-flow__node-canvas-metric-detail:hover .react-flow__resize-control,
+.react-flow__node-canvas-trend:hover .react-flow__resize-control,
+.react-flow__node-canvas-breakdown:hover .react-flow__resize-control,
+.react-flow__node-canvas-combined:hover .react-flow__resize-control {
+  opacity: 1;
+}

@@ -1,46 +1,48 @@
+import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import './CombinedCard.css';
 
-const CombinedCard = ({ metric, breakdownType }) => {
-  // Generate fake combined data - breakdown categories with trend over time
-  const generateCombinedData = () => {
+const CombinedCard = ({ metric, breakdownType, chartHeight }) => {
+  // Generate fake combined data - breakdown categories with trend over time - memoized
+  const { combinedData, categories } = useMemo(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
     const baseValue = metric.currentValue;
     
-    let categories = [];
+    let cats = [];
     switch (breakdownType) {
       case 'Deal Size':
-        categories = ['$0-$500', '$500-$1K', '$1K-$5K', '$5K-$10K', '$10K+'];
+        cats = ['$0-$500', '$500-$1K', '$1K-$5K', '$5K-$10K', '$10K+'];
         break;
       case 'Account Age':
-        categories = ['< 1 year', '1-2 years', '2-5 years', '5+ years'];
+        cats = ['< 1 year', '1-2 years', '2-5 years', '5+ years'];
         break;
       case 'Opportunity Size':
-        categories = ['Small', 'Medium', 'Large', 'Enterprise'];
+        cats = ['Small', 'Medium', 'Large', 'Enterprise'];
         break;
       default:
-        categories = ['Category A', 'Category B', 'Category C'];
+        cats = ['Category A', 'Category B', 'Category C'];
     }
 
-    // Generate trend data for each category
-    return months.map((month, index) => {
+    // Generate trend data for each category with stable seed-based variance
+    const data = months.map((month, index) => {
       const monthData = { month };
       const trendMultiplier = 0.85 + (index * 0.15 / 9); // Gradual increase over time
       
-      categories.forEach((category, catIndex) => {
+      cats.forEach((category, catIndex) => {
         // Different base percentages for each category
         const basePercentages = [0.4, 0.3, 0.2, 0.1];
         const basePercent = basePercentages[catIndex] || 0.1;
-        const variance = (Math.random() - 0.5) * 0.1; // ±5% variance
+        // Use stable seed-based variance instead of Math.random()
+        const seed = metric.id.charCodeAt(0) + index + catIndex;
+        const variance = (((seed * 9301 + 49297) % 233280) / 233280 - 0.5) * 0.1; // ±5% variance
         monthData[category] = Math.round(baseValue * basePercent * trendMultiplier * (1 + variance));
       });
       
       return monthData;
     });
-  };
 
-  const combinedData = generateCombinedData();
-  const categories = Object.keys(combinedData[0]).filter(key => key !== 'month');
+    return { combinedData: data, categories: cats };
+  }, [metric.currentValue, metric.id, breakdownType]);
 
   const formatValue = (value) => {
     if (metric.unit === '$') {
@@ -78,7 +80,7 @@ const CombinedCard = ({ metric, breakdownType }) => {
       </div>
       
       <div className="combined-chart-container">
-        <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={chartHeight || 300}>
           <LineChart
             data={combinedData}
             margin={{

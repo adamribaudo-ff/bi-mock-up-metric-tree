@@ -6,6 +6,8 @@ export const SelectedMetricProvider = ({ children }) => {
   const [selectedMetric, setSelectedMetric] = useState(null);
   const [metricHistory, setMetricHistory] = useState([]);
   const [isShelfOpen, setIsShelfOpen] = useState(false);
+  const [draggedCards, setDraggedCards] = useState(new Set());
+  const [droppedCards, setDroppedCards] = useState(new Set());
 
   const addMetricToHistory = useCallback((metric) => {
     setSelectedMetric(metric);
@@ -55,6 +57,29 @@ export const SelectedMetricProvider = ({ children }) => {
     setIsShelfOpen(open);
   }, []);
 
+  const setCardDragging = useCallback((timestamp, isDragging) => {
+    setDraggedCards(prev => {
+      const newSet = new Set(prev);
+      if (isDragging) {
+        newSet.add(timestamp);
+      } else {
+        newSet.delete(timestamp);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const setCardDropped = useCallback((timestamp) => {
+    setDroppedCards(prev => new Set([...prev, timestamp]));
+    setDraggedCards(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(timestamp);
+      return newSet;
+    });
+    // Remove from history after drop
+    removeFromHistory(timestamp);
+  }, [removeFromHistory]);
+
   return (
     <SelectedMetricContext.Provider value={{ 
       selectedMetric, 
@@ -66,7 +91,11 @@ export const SelectedMetricProvider = ({ children }) => {
       metricHistory, 
       clearHistory,
       isShelfOpen,
-      setShelfOpen
+      setShelfOpen,
+      draggedCards,
+      droppedCards,
+      setCardDragging,
+      setCardDropped
     }}>
       {children}
     </SelectedMetricContext.Provider>
